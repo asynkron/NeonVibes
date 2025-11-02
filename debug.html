@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Gravibe Debug - Trace & Logs</title>
+  <link rel="stylesheet" href="gravibe.css" />
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js" defer></script>
+  <script src="gravibe.js" type="module" defer></script>
+</head>
+<body>
+  <header class="page-header">
+    <h1>Gravibe Debug</h1>
+    <p>Trace viewer and log console for debugging.</p>
+  </header>
+
+  <section class="trace-section">
+    <header class="trace-header">
+      <h2>Distributed Trace Explorer</h2>
+      <p>Inspect service spans in a single trace, complete with nested timing bars and attribute drill-down.</p>
+    </header>
+    <div class="trace-viewer" data-component="traceViewer"></div>
+  </section>
+
+  <section class="log-console-section">
+    <header class="log-console-header">
+      <h2>Operational Log Stream</h2>
+      <p>Inspect structured log entries with inline attribute highlighting and expandable context.</p>
+    </header>
+    <div class="log-console" data-component="logConsole"></div>
+  </section>
+</body>
+</html>
+
