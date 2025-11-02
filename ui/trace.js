@@ -80,11 +80,12 @@ export async function ensureSampleLogRowsLoaded() {
 /**
  * @typedef {ReturnType<typeof createTraceSpan>} TraceSpan
  * @typedef {ReturnType<typeof createTraceEvent>} TraceEvent
+ * @typedef {import("./logs.js").LogRow} LogRow
  * @typedef {{ id: string, name: string }} Group
  * @typedef {{ id: string, name: string, groupId: string, kind: string, componentStack: string }} Component
  * @typedef {{ groupName: string, componentName: string, operation: string, componentKind: string, componentStack: string, isClient?: boolean }} SpanDescription
  * @typedef {{ traceId: string, startTimeUnixNano: number, endTimeUnixNano: number, durationNano: number, spanCount: number, roots: TraceSpanNode[], serviceNameMapping: Map<string, number>, groups: Map<string, Group>, components: Map<string, Component> }} TraceModel
- * @typedef {{ span: TraceSpan, depth: number, children: TraceSpanNode[], description?: SpanDescription }} TraceSpanNode
+ * @typedef {{ span: TraceSpan, depth: number, children: TraceSpanNode[], description?: SpanDescription, logs?: LogRow[], events?: TraceEvent[] }} TraceSpanNode
  */
 
 export const SpanKind = Object.freeze({
@@ -201,9 +202,10 @@ function buildServiceNameMapping(spans) {
  * Builds a hierarchical trace model so spans become aware of their children
  * without mutating the original span definitions.
  * @param {TraceSpan[]} spans
+ * @param {LogRow[]=} logRows - Optional array of log rows to merge into span nodes
  * @returns {TraceModel}
  */
-export function buildTraceModel(spans) {
+export function buildTraceModel(spans, logRows = null) {
   if (!Array.isArray(spans) || spans.length === 0) {
     return {
       traceId: "",
@@ -226,6 +228,19 @@ export function buildTraceModel(spans) {
   // Maps to collect unique groups and components
   const groups = new Map();
   const components = new Map();
+
+  // Build a map of spanId -> log rows for efficient lookup
+  const logsBySpanId = new Map();
+  if (Array.isArray(logRows)) {
+    logRows.forEach((logRow) => {
+      if (logRow.spanId) {
+        if (!logsBySpanId.has(logRow.spanId)) {
+          logsBySpanId.set(logRow.spanId, []);
+        }
+        logsBySpanId.get(logRow.spanId).push(logRow);
+      }
+    });
+  }
 
   spans.forEach((span) => {
     const start = toNumberTimestamp(span.startTimeUnixNano);
@@ -270,8 +285,21 @@ export function buildTraceModel(spans) {
       });
     }
 
-    // Store description in node
-    spanNodes.set(span.spanId, { span, depth: 0, children: [], description });
+    // Look up logs for this span (same as trace component does)
+    const spanLogs = logsBySpanId.get(span.spanId) || [];
+
+    // Get events from span (span.events is already available)
+    const spanEvents = span.events || [];
+
+    // Store description, logs, and events in node
+    spanNodes.set(span.spanId, {
+      span,
+      depth: 0,
+      children: [],
+      description,
+      logs: spanLogs,
+      events: spanEvents,
+    });
   });
 
   const serviceNameMapping = buildServiceNameMapping(spans);
@@ -585,13 +613,13 @@ function createMarkerTooltip(data) {
   return tooltip;
 }
 
-function renderSpanMarkers(span, trace, timeWindow = { start: 0, end: 100 }) {
+function renderSpanMarkers(node, trace, timeWindow = { start: 0, end: 100 }) {
   // Collect all timestamps: logs and events with their data
   const markers = [];
+  const span = node.span;
 
-  // Get logs for this span (lazy import to avoid circular dependency)
-  const sampleLogRows = getSampleLogRows();
-  const spanLogs = sampleLogRows.filter((logRow) => logRow.spanId === span.spanId);
+  // Get logs from node (already merged during metamodel build)
+  const spanLogs = node.logs || [];
   spanLogs.forEach((logRow) => {
     markers.push({
       timestamp: logRow.timeUnixNano,
@@ -600,16 +628,15 @@ function renderSpanMarkers(span, trace, timeWindow = { start: 0, end: 100 }) {
     });
   });
 
-  // Get events for this span
-  if (span.events && span.events.length > 0) {
-    span.events.forEach((event) => {
-      markers.push({
-        timestamp: event.timeUnixNano,
-        type: 'event',
-        event: event,
-      });
+  // Get events from node (already merged during metamodel build)
+  const spanEvents = node.events || [];
+  spanEvents.forEach((event) => {
+    markers.push({
+      timestamp: event.timeUnixNano,
+      type: 'event',
+      event: event,
     });
-  }
+  });
 
   if (markers.length === 0) {
     return null;
@@ -820,10 +847,9 @@ function renderSpanMarkers(span, trace, timeWindow = { start: 0, end: 100 }) {
   return container.childElementCount > 0 ? container : null;
 }
 
-function renderSpanLogs(span) {
-  // Filter logs by span ID - virtual entries (span start, events, span end) are already in the array
-  const sampleLogRows = getSampleLogRows();
-  const allLogs = sampleLogRows.filter((logRow) => logRow.spanId === span.spanId);
+function renderSpanLogs(node) {
+  // Get logs from node (already merged during metamodel build)
+  const allLogs = node.logs || [];
 
   if (allLogs.length === 0) {
     return null;
@@ -902,12 +928,12 @@ function renderSpanLogs(span) {
   return logsSection;
 }
 
-function renderSpanDetails(span) {
+function renderSpanDetails(node) {
   const details = document.createElement("div");
   details.className = "trace-span__details";
 
-  // Add logs section filtered by span ID (includes span start, events, logs, and span end converted to log rows)
-  const logsSection = renderSpanLogs(span);
+  // Add logs section (logs already merged during metamodel build)
+  const logsSection = renderSpanLogs(node);
   if (logsSection) {
     details.append(logsSection);
   }
@@ -1024,7 +1050,7 @@ function renderSpanSummary(trace, node, timeWindow = { start: 0, end: 100 }) {
   bar.append(duration);
 
   // Add markers for logs and events
-  const markers = renderSpanMarkers(node.span, trace, timeWindow);
+  const markers = renderSpanMarkers(node, trace, timeWindow);
   if (markers) {
     bar.append(markers);
   }
@@ -1086,7 +1112,7 @@ function renderSpanNode(trace, node, state, isLastChild = false, parentDepth = -
     expandedAttributes: new Set(),
   };
 
-  const detailSections = renderSpanDetails(node.span);
+  const detailSections = renderSpanDetails(node);
   const hasDetails = detailSections.childElementCount > 0;
   if (hasDetails) {
     detailSections.id = `trace-span-details-${node.span.spanId}`;
@@ -1453,7 +1479,13 @@ export function initTraceViewer(host, spans) {
     console.log("[initTraceViewer] No host, returning empty functions");
     return { render: () => { }, update: () => { } };
   }
-  const trace = buildTraceModel(spans);
+  
+  // Get log rows (already merged during metamodel build, so we can access them directly)
+  // This performs the same lookup that the trace component used to do during rendering
+  const logRows = getSampleLogRows();
+  
+  // Build trace model with logs and events merged into span nodes during build
+  const trace = buildTraceModel(spans, logRows);
   let viewState = renderTrace(host, trace);
   let previewComponent = viewState.preview; // Store preview reference
   console.log("[initTraceViewer] Trace viewer initialized, previewComponent:", previewComponent);
