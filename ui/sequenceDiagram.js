@@ -26,7 +26,7 @@ const DEFAULT_CONFIG = {
   showAttributes: true,
   showLogs: true,
   showAsync: false,
-  showRecursion: false,
+  showRecursion: true,
   theme: "dark",
 };
 
@@ -254,9 +254,17 @@ function renderChildren(lines, parent, trace, config) {
     } else {
       // Regular call - show as participant interaction
       const isRecursion = parentComponentId === childComponentId;
+      
+      if (isRecursion) {
+        console.log(`[renderChildren] Self-call detected: ${parentComponentId} -> ${childComponentId} (showRecursion: ${config.showRecursion})`);
+      }
 
+      // Only render call start/end if NOT a recursion OR if showRecursion is enabled
+      // This matches the C# implementation: hides self-calls by default
       if (!isRecursion || config.showRecursion) {
         renderCallStart(lines, child, parent, trace, config);
+      } else {
+        console.log(`[renderChildren] Skipping self-call rendering for ${parentComponentId} (showRecursion is false)`);
       }
 
       if (config.showAttributes) {
