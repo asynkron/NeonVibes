@@ -53,11 +53,26 @@ export function generateSequenceDiagram(trace, config = {}) {
   lines.push("    autonumber");
   console.log("[generateSequenceDiagram] Added sequenceDiagram header and autonumber");
 
-  // Render participants (components grouped by groups)
+  // Render participants (components grouped by groups) FIRST
+  // This ensures all participants are declared before being used in calls/notes
   renderParticipants(lines, trace);
   console.log("[generateSequenceDiagram] Rendered participants, total lines:", lines.length);
+  
+  // Verify all participant IDs that are declared
+  const declaredParticipantIds = new Set();
+  lines.forEach((line) => {
+    // Extract participant IDs from declarations: "participant "Name" as id" or "actor "Name" as id"
+    // Also handle lines with extra indentation inside boxes
+    const participantMatch = line.match(/(?:participant|actor|database)\s+(?:"[^"]+"\s+)?as\s+(\w+)/);
+    if (participantMatch) {
+      const id = participantMatch[1];
+      declaredParticipantIds.add(id);
+      console.log(`[generateSequenceDiagram] Found declared participant: ${id} in line: ${line.trim()}`);
+    }
+  });
+  console.log("[generateSequenceDiagram] All declared participant IDs:", Array.from(declaredParticipantIds).sort());
 
-  // Render the sequence from root spans
+  // Render the sequence from root spans (calls and notes that reference participants)
   trace.roots.forEach((root, index) => {
     console.log(`[generateSequenceDiagram] Rendering root ${index + 1}/${trace.roots.length}`);
     renderChildren(lines, root, trace, cfg);
@@ -75,12 +90,41 @@ export function generateSequenceDiagram(trace, config = {}) {
  * @param {TraceModel} trace - Trace model
  */
 function renderParticipants(lines, trace) {
-  // First, render components that are not in any group
+  // Track which components have been rendered to avoid duplicates
+  const renderedComponentIds = new Set();
+  
+  // Build a map of all components by their groupId for easier lookup
+  const componentsByGroup = new Map();
   trace.components.forEach((component) => {
-    if (!trace.groups.has(component.groupId) && component.groupId) {
-      const declaration = getComponentDeclaration(component);
-      if (declaration) {
-        lines.push(`    ${declaration}`);
+    const groupId = component.groupId || "";
+    if (!componentsByGroup.has(groupId)) {
+      componentsByGroup.set(groupId, []);
+    }
+    componentsByGroup.get(groupId).push(component);
+  });
+
+  // First, render components that are not in any group (no groupId or empty groupId)
+  // OR components whose groupId doesn't exist in trace.groups
+  const ungroupedComponents = componentsByGroup.get("") || [];
+  ungroupedComponents.forEach((component) => {
+    const declaration = getComponentDeclaration(component);
+    if (declaration) {
+      lines.push(`    ${declaration}`);
+      renderedComponentIds.add(component.id);
+      console.log(`[renderParticipants] Added ungrouped participant: ${declaration} (id: ${component.id})`);
+    }
+  });
+
+  // Also check for components with groupIds that don't exist in groups
+  trace.components.forEach((component) => {
+    if (component.groupId && component.groupId !== "" && !trace.groups.has(component.groupId)) {
+      if (!renderedComponentIds.has(component.id)) {
+        const declaration = getComponentDeclaration(component);
+        if (declaration) {
+          lines.push(`    ${declaration}`);
+          renderedComponentIds.add(component.id);
+          console.log(`[renderParticipants] Added participant with invalid groupId: ${declaration} (groupId: ${component.groupId}, id: ${component.id})`);
+        }
       }
     }
   });
@@ -88,20 +132,44 @@ function renderParticipants(lines, trace) {
   // Then, render groups with their components (Mermaid uses "box" not "group")
   trace.groups.forEach((group) => {
     const groupName = escapeMermaid(group.name);
-    console.log(`[renderParticipants] Rendering group: ${groupName}`);
-    lines.push(`    box ${groupName}`);
-    trace.components.forEach((component) => {
-      if (component.groupId === group.id) {
-        const declaration = getComponentDeclaration(component);
-        if (declaration) {
-          lines.push(`        ${declaration}`);
-          console.log(`[renderParticipants] Added participant: ${declaration}`);
+    console.log(`[renderParticipants] Rendering group: ${groupName} (id: "${group.id}")`);
+    
+    // Get all components for this group
+    const groupComponents = componentsByGroup.get(group.id) || [];
+    console.log(`[renderParticipants] Found ${groupComponents.length} components for group ${groupName}`);
+    
+    if (groupComponents.length > 0) {
+      lines.push(`    box ${groupName}`);
+      
+      groupComponents.forEach((component) => {
+        // Only render if not already rendered
+        if (!renderedComponentIds.has(component.id)) {
+          const declaration = getComponentDeclaration(component);
+          if (declaration) {
+            lines.push(`        ${declaration}`);
+            renderedComponentIds.add(component.id);
+            console.log(`[renderParticipants] Added participant to group ${groupName}: ${declaration} (component.groupId: "${component.groupId}", id: ${component.id})`);
+          }
+        } else {
+          console.warn(`[renderParticipants] Component ${component.id} (groupId: "${component.groupId}") already rendered, skipping duplicate`);
         }
-      }
-    });
-    lines.push(`    end`);
+      });
+      
+      lines.push(`    end`);
+    } else {
+      console.warn(`[renderParticipants] Group ${groupName} (id: "${group.id}") has no components`);
+    }
   });
-  console.log(`[renderParticipants] Total participants rendered: ${lines.filter(l => l.includes('participant') || l.includes('actor') || l.includes('database')).length}`);
+  
+  const totalParticipants = lines.filter(l => l.includes('participant') || l.includes('actor') || l.includes('database')).length;
+  console.log(`[renderParticipants] Summary - Total participant lines: ${totalParticipants}, Unique components rendered: ${renderedComponentIds.size}`);
+  
+  // Warn if we have duplicates
+  if (totalParticipants !== renderedComponentIds.size) {
+    console.warn(`[renderParticipants] WARNING: Possible duplicate participants! Lines: ${totalParticipants}, Unique: ${renderedComponentIds.size}`);
+    // Log all component IDs for debugging
+    console.log(`[renderParticipants] Rendered component IDs:`, Array.from(renderedComponentIds));
+  }
 }
 
 /**
@@ -117,9 +185,10 @@ function getComponentDeclaration(component) {
 
   // Mermaid sequence diagrams only support "participant" and "actor"
   // All other types (database, queue, etc.) must use "participant"
+  // Correct syntax: participant id as "pretty name"
   switch (component.kind) {
     case "actor":
-      return `actor "${name}" as ${id}`;
+      return `actor ${id} as "${name}"`;
     case "endpoint":
     case "queue":
     case "database":
@@ -130,7 +199,8 @@ function getComponentDeclaration(component) {
     case "start":
     default:
       // All types use "participant" (Mermaid sequence diagrams only support participant and actor)
-      return `participant "${name}" as ${id}`;
+      // Syntax: participant id as "pretty name"
+      return `participant ${id} as "${name}"`;
   }
 }
 
@@ -215,6 +285,7 @@ function renderChildren(lines, parent, trace, config) {
  */
 function getComponentId(node, trace) {
   if (!node.description) {
+    console.warn(`[getComponentId] Node ${node.span.spanId} has no description, returning "unknown"`);
     return "unknown";
   }
 
@@ -223,7 +294,12 @@ function getComponentId(node, trace) {
     node.description.componentName || ""
   );
 
-  return trace.components.has(componentId) ? componentId : "unknown";
+  const exists = trace.components.has(componentId);
+  if (!exists) {
+    console.warn(`[getComponentId] Component ${componentId} not found in trace.components (groupName: "${node.description.groupName}", componentName: "${node.description.componentName}")`);
+  }
+  
+  return exists ? componentId : "unknown";
 }
 
 /**
@@ -319,7 +395,7 @@ function renderAttributes(lines, node, trace, config) {
     const noteText = `ATTRIBUTES\n${attributes.join("\n")}`;
     const escapedNote = escapeMermaid(noteText);
     lines.push(`    Note over ${componentId}: ${escapedNote}`);
-    console.log(`[renderAttributes] Added note over ${componentId}`);
+    console.log(`[renderAttributes] Added note over participant ID: ${componentId} (component.id lookup result)`);
   }
 
   // Special handling for HTTP URL
