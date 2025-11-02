@@ -4,7 +4,7 @@
  * Based on TraceLens.Server/generators/PlantUml/SequenceGenerator.cs
  */
 
-import { createComponentKey } from "./metaModel.js";
+import { createComponentKey, ComponentKind } from "./metaModel.js";
 
 /**
  * @typedef {import("./trace.js").TraceModel} TraceModel
@@ -289,14 +289,28 @@ function getComponentId(node, trace) {
     return "unknown";
   }
 
-  const componentId = createComponentKey(
-    node.description.groupName || "",
-    node.description.componentName || ""
-  );
+  // Apply the same normalization logic as buildTraceModel()
+  // This ensures we use the same groupName/componentName that were used when creating the component
+  let groupName = node.description.groupName || "";
+  let componentName = node.description.componentName || "";
+  
+  // Normalize: if component is Service and group is empty, use component name as group
+  // This matches the logic in buildTraceModel() lines 360-363
+  if (node.description.componentKind === ComponentKind.SERVICE && !groupName) {
+    groupName = componentName;
+    componentName = "Internal";
+  }
+  if (!componentName) {
+    componentName = "Unknown";
+  }
+
+  const componentId = createComponentKey(groupName, componentName);
 
   const exists = trace.components.has(componentId);
   if (!exists) {
-    console.warn(`[getComponentId] Component ${componentId} not found in trace.components (groupName: "${node.description.groupName}", componentName: "${node.description.componentName}")`);
+    console.warn(`[getComponentId] Component ${componentId} not found in trace.components (original groupName: "${node.description.groupName}", original componentName: "${node.description.componentName}", normalized groupName: "${groupName}", normalized componentName: "${componentName}")`);
+    // Log all available component IDs for debugging
+    console.log(`[getComponentId] Available component IDs:`, Array.from(trace.components.keys()));
   }
   
   return exists ? componentId : "unknown";
