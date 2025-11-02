@@ -1,0 +1,451 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Gravibe Neon Chart Kit</title>
+  <link rel="stylesheet" href="gravibe.css" />
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js" defer></script>
+  <script src="gravibe.js" type="module" defer></script>
+</head>
+<body>
+  <header class="page-header">
+    <h1>Gravibe</h1>
+    <p>A neon-soaked template kit of arcade-ready charts and stat cards built for AI agents to remix.</p>
+  </header>
+  <section class="effect-panel">
+    <div>
+      <h2>Glow Lab</h2>
+      <p>Dial in a consistent glow treatment, adjust outlines, and keep the neon halo tucked behind each chart shell.</p>
+    </div>
+    <div class="effect-controls">
+      <label class="effect-control effect-control--palette">
+        <span>Palette</span>
+        <select id="palette-select" class="palette-select"></select>
+      </label>
+      <label class="effect-control">
+        <span>Chart Glow Strength</span>
+        <input
+          id="effect-glow-strength"
+          type="range"
+          min="0"
+          max="2"
+          step="0.05"
+          value="1"
+          data-effect-control="glowIntensity"
+          data-precision="2"
+        />
+        <output id="effect-glow-strength-value">1.00×</output>
+      </label>
+      <label class="effect-control">
+        <span>Chart Glow Opacity</span>
+        <input
+          id="effect-glow-opacity"
+          type="range"
+          min="0"
+          max="1"
+          step="0.05"
+          value="0.45"
+          data-effect-control="glowOpacity"
+          data-precision="2"
+        />
+        <output id="effect-glow-opacity-value">0.45</output>
+      </label>
+      <label class="effect-control">
+        <span>Outline Scale</span>
+        <input
+          id="effect-outline-scale"
+          type="range"
+          min="0"
+          max="2"
+          step="0.05"
+          value="1"
+          data-effect-control="outlineScale"
+          data-precision="2"
+        />
+        <output id="effect-outline-scale-value">1.00×</output>
+      </label>
+      <label class="effect-control">
+        <span>Halo Blur</span>
+        <input
+          id="effect-halo-blur"
+          type="range"
+          min="0"
+          max="60"
+          step="1"
+          value="28"
+          data-effect-control="haloBlur"
+          data-unit="px"
+        />
+        <output id="effect-halo-blur-value">28px</output>
+      </label>
+      <label class="effect-control">
+        <span>Halo Opacity</span>
+        <input
+          id="effect-halo-opacity"
+          type="range"
+          min="0"
+          max="1"
+          step="0.05"
+          value="0.28"
+          data-effect-control="haloOpacity"
+          data-precision="2"
+        />
+        <output id="effect-halo-opacity-value">0.28</output>
+      </label>
+      <label class="effect-control">
+        <span>Render Engine</span>
+        <select id="renderer-select" class="effect-select">
+          <option value="canvas">Canvas</option>
+          <option value="svg">SVG</option>
+        </select>
+      </label>
+      <label class="effect-control">
+        <span>Background Effect</span>
+        <select id="background-effect-select" class="effect-select">
+          <option value="solid">Solid Surface</option>
+          <option value="linear">Linear Gradient</option>
+          <option value="radial">Radial Gradient</option>
+        </select>
+      </label>
+    </div>
+  </section>
+  <main class="component-sections">
+    <section class="component-section">
+      <header class="component-section__header">
+        <h2>Shared Axis Streams</h2>
+        <p>These time-series, stacked, bar, and combo charts tap the same live telemetry feed so you can compare alternate views instantly.</p>
+      </header>
+      <div class="component-grid">
+        <article class="component-card" data-component="timeSeries">
+          <header>
+            <h2>Time Series Flux</h2>
+            <p>Compare up to three concurrent signals pulsing across the same time axis.</p>
+            <label>Dataset
+              <select class="dataset-select"></select>
+            </label>
+          </header>
+          <div class="chart-shell">
+            <div class="chart-canvas"></div>
+          </div>
+          <footer class="component-notes">Shares the Flux Telemetry feed powering this section—drop in matching timestamps to expand the glow trail.</footer>
+        </article>
+
+        <article class="component-card" data-component="barChart">
+          <header>
+            <h2>Clustered Bar Pulse</h2>
+            <p>Compare categories side-by-side, across multiple samples.</p>
+            <label>Dataset
+              <select class="dataset-select"></select>
+            </label>
+          </header>
+          <div class="chart-shell">
+            <div class="chart-canvas"></div>
+          </div>
+          <footer class="component-notes">Draws from the shared Flux Telemetry feed—add samples to reveal more glowing groups.</footer>
+        </article>
+
+        <article class="component-card" data-component="trend">
+          <header>
+            <h2>Trend Ribbon</h2>
+            <p>Blend multiple smoothed trends into a single glow ribbon.</p>
+            <label>Dataset
+              <select class="dataset-select"></select>
+            </label>
+          </header>
+          <div class="chart-shell">
+            <div class="chart-canvas"></div>
+          </div>
+          <footer class="component-notes">Listening to the shared Flux Telemetry feed—adjust smoothing to highlight different beats.</footer>
+        </article>
+
+        <article class="component-card" data-component="stackedArea">
+          <header>
+            <h2>Latency Percentile Stack</h2>
+            <p>Watch percentile bands of request latency to spot regressions across services.</p>
+            <label>Dataset
+              <select class="dataset-select"></select>
+            </label>
+          </header>
+          <div class="chart-shell">
+            <div class="chart-canvas"></div>
+          </div>
+          <footer class="component-notes">Stacks the shared Flux Telemetry feed—layer in new percentiles to widen the neon ribbon.</footer>
+        </article>
+
+        <article class="component-card" data-component="dualAxis">
+          <header>
+            <h2>Throughput vs Error Rate</h2>
+            <p>Compare load and reliability by pairing request throughput with error budgets.</p>
+            <label>Dataset
+              <select class="dataset-select"></select>
+            </label>
+          </header>
+          <div class="chart-shell">
+            <div class="chart-canvas"></div>
+          </div>
+          <footer class="component-notes">Shares the Flux Telemetry feed so bar and line views pulse in sync across the axis group.</footer>
+        </article>
+      </div>
+    </section>
+
+    <section class="component-section">
+      <header class="component-section__header">
+        <h2>State &amp; Status Timelines</h2>
+        <p>Timeline modules capture how systems and squads shift states throughout a mission.</p>
+      </header>
+      <div class="component-grid">
+        <article class="component-card" data-component="stateTimeline">
+          <header>
+            <h2>State Timeline</h2>
+            <p>Visualize how a system jumped between named states throughout a shift.</p>
+            <label>Dataset
+              <select class="dataset-select"></select>
+            </label>
+          </header>
+          <div class="chart-shell">
+            <div class="chart-canvas"></div>
+          </div>
+          <footer class="component-notes">Extend the timeline by appending additional state spans.</footer>
+        </article>
+
+        <article class="component-card" data-component="statusHistory">
+          <header>
+            <h2>Status History Bands</h2>
+            <p>Show the stacked history of categorical statuses across multiple squads.</p>
+            <label>Dataset
+              <select class="dataset-select"></select>
+            </label>
+          </header>
+          <div class="chart-shell">
+            <div class="chart-canvas"></div>
+          </div>
+          <footer class="component-notes">Add or remove squads to show more tracks.</footer>
+        </article>
+      </div>
+    </section>
+
+    <section class="component-section">
+      <header class="component-section__header">
+        <h2>Distribution &amp; Composition</h2>
+        <p>Compare intensity, slices, and trading sessions with glowing categorical encodings.</p>
+      </header>
+      <div class="component-grid">
+        <article class="component-card" data-component="histogram">
+          <header>
+            <h2>Spectrum Histogram</h2>
+            <p>Bucket raw values into luminous frequency bars.</p>
+            <label>Dataset
+              <select class="dataset-select"></select>
+            </label>
+          </header>
+          <div class="chart-shell">
+            <div class="chart-canvas"></div>
+          </div>
+          <footer class="component-notes">Tune the bin count to tighten or soften the glow.</footer>
+        </article>
+
+        <article class="component-card" data-component="heatmap">
+          <header>
+            <h2>Heatmap Grid</h2>
+            <p>Encode intensity and compare multiple sources across a matrix.</p>
+            <label>Dataset
+              <select class="dataset-select"></select>
+            </label>
+          </header>
+          <div class="chart-shell">
+            <div class="chart-canvas"></div>
+          </div>
+          <footer class="component-notes">Blend in additional channels by supplying more rows.</footer>
+        </article>
+
+        <article class="component-card" data-component="pieChart">
+          <header>
+            <h2>Radial Split</h2>
+            <p>Display share of voice with a neon segmented pie.</p>
+            <label>Dataset
+              <select class="dataset-select"></select>
+            </label>
+          </header>
+          <div class="chart-shell">
+            <div class="chart-canvas"></div>
+          </div>
+          <footer class="component-notes">Reorder slices by editing the dataset array.</footer>
+        </article>
+
+        <article class="component-card" data-component="candlestick">
+          <header>
+            <h2>Candlestick Ticker</h2>
+            <p>Capture open-high-low-close telemetry with glimmering wicks.</p>
+            <label>Dataset
+              <select class="dataset-select"></select>
+            </label>
+          </header>
+          <div class="chart-shell">
+            <div class="chart-canvas"></div>
+          </div>
+          <footer class="component-notes">Feed in more sessions to project longer runs.</footer>
+        </article>
+      </div>
+    </section>
+
+    <section class="component-section">
+      <header class="component-section__header">
+        <h2>Spatial &amp; Flow Analytics</h2>
+        <p>Plot movement, benchmark multidimensional health, and trace how energy flows through the platform.</p>
+      </header>
+      <div class="component-grid">
+        <article class="component-card" data-component="xyScatter">
+          <header>
+            <h2>XY Scatter Field</h2>
+            <p>Plot clusters and see how they drift together through glowing space.</p>
+            <label>Dataset
+              <select class="dataset-select"></select>
+            </label>
+          </header>
+          <div class="chart-shell">
+            <div class="chart-canvas"></div>
+          </div>
+          <footer class="component-notes">Add more clusters to compare additional cohorts.</footer>
+        </article>
+
+        <article class="component-card" data-component="radar">
+          <header>
+            <h2>Cluster Health Radar</h2>
+            <p>Benchmark environment health by comparing utilization and saturation metrics.</p>
+            <label>Dataset
+              <select class="dataset-select"></select>
+            </label>
+          </header>
+          <div class="chart-shell">
+            <div class="chart-canvas"></div>
+          </div>
+          <footer class="component-notes">Add more clusters to overlay competing environments.</footer>
+        </article>
+
+        <article class="component-card" data-component="boxplot">
+          <header>
+            <h2>Latency Boxplot</h2>
+            <p>Summarize request latency distributions with whiskers and outliers.</p>
+            <label>Dataset
+              <select class="dataset-select"></select>
+            </label>
+          </header>
+          <div class="chart-shell">
+            <div class="chart-canvas"></div>
+          </div>
+          <footer class="component-notes">Add outlier samples to highlight noisy services.</footer>
+        </article>
+
+        <article class="component-card" data-component="sankey">
+          <header>
+            <h2>Request Flow Sankey</h2>
+            <p>Trace how traffic traverses the platform from ingress to downstream systems.</p>
+            <label>Dataset
+              <select class="dataset-select"></select>
+            </label>
+          </header>
+          <div class="chart-shell">
+            <div class="chart-canvas"></div>
+          </div>
+          <footer class="component-notes">Map additional nodes to surface new dependencies.</footer>
+        </article>
+
+        <article class="component-card" data-component="treemap">
+          <header>
+            <h2>Error Impact Treemap</h2>
+            <p>Quantify where incidents consume the error budget across services.</p>
+            <label>Dataset
+              <select class="dataset-select"></select>
+            </label>
+          </header>
+          <div class="chart-shell">
+            <div class="chart-canvas"></div>
+          </div>
+          <footer class="component-notes">Extend branches to visualize subsystem depth.</footer>
+        </article>
+
+        <article class="component-card" data-component="funnel">
+          <header>
+            <h2>Delivery Funnel</h2>
+            <p>Track build artifacts as they progress from commit to production.</p>
+            <label>Dataset
+              <select class="dataset-select"></select>
+            </label>
+          </header>
+          <div class="chart-shell">
+            <div class="chart-canvas"></div>
+          </div>
+          <footer class="component-notes">Insert more stages to reflect your continuous delivery cadence.</footer>
+        </article>
+      </div>
+    </section>
+
+    <section class="component-section">
+      <header class="component-section__header">
+        <h2>Focused Metrics</h2>
+        <p>Neon gauges and stat cards spotlight leading indicators at a glance.</p>
+      </header>
+      <div class="component-grid">
+        <article class="component-card" data-component="gauge">
+          <header>
+            <h2>Arcade Gauge</h2>
+            <p>Track current progress against a neon halo threshold.</p>
+            <label>Dataset
+              <select class="dataset-select"></select>
+            </label>
+          </header>
+          <div class="chart-shell">
+            <div class="chart-canvas"></div>
+          </div>
+          <footer class="component-notes">Switch the target threshold to change the danger band.</footer>
+        </article>
+
+        <article class="component-card" data-component="stat">
+          <header>
+            <h2>Stat Pulse</h2>
+            <p>Showcase a primary metric with a rolling delta indicator.</p>
+            <label>Dataset
+              <select class="dataset-select"></select>
+            </label>
+          </header>
+          <div class="stat-shell">
+            <div class="stat-value"></div>
+            <div class="stat-meta"></div>
+          </div>
+          <footer class="component-notes">Pair with different baselines to flip the delta tone.</footer>
+        </article>
+
+        <article class="component-card" data-component="barGauge">
+          <header>
+            <h2>Bar Gauge Stack</h2>
+            <p>Render stacked contributions with a linear neon bar.</p>
+            <label>Dataset
+              <select class="dataset-select"></select>
+            </label>
+          </header>
+          <div class="chart-shell">
+            <div class="chart-canvas"></div>
+          </div>
+          <footer class="component-notes">Rebalance the contributions to highlight different segments.</footer>
+        </article>
+      </div>
+    </section>
+  </main>
+  <section class="trace-section">
+    <header class="trace-header">
+      <h2>Distributed Trace Explorer</h2>
+      <p>Inspect service spans in a single trace, complete with nested timing bars and attribute drill-down.</p>
+    </header>
+    <div class="trace-viewer" data-component="traceViewer"></div>
+  </section>
+
+  <section class="log-console-section">
+    <header class="log-console-header">
+      <h2>Operational Log Stream</h2>
+      <p>Inspect structured log entries with inline attribute highlighting and expandable context.</p>
+    </header>
+    <div class="log-console" data-component="logConsole"></div>
+  </section>
+</body>
+</html>
