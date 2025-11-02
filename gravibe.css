@@ -1457,3 +1457,84 @@ body {
     font-size: var(--font-size-xs);
   }
 }
+
+/* Custom Sequence Diagram Styles */
+.custom-sequence-diagram {
+  position: relative;
+  width: 100%;
+  min-height: 400px;
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+.sequence-group {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.sequence-participants {
+  display: flex;
+  flex-direction: row;
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  gap: 128px;
+}
+
+.sequence-participant-column {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 150px;
+  position: relative;
+}
+
+.sequence-participant-header,
+.sequence-participant-footer {
+  padding: 12px 16px;
+  text-align: center;
+  font-weight: 600;
+  font-size: var(--font-size-sm);
+  color: #ffffff;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  min-height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sequence-participant-header {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  border-bottom: none;
+}
+
+.sequence-participant-footer {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  border-top: none;
+  margin-top: auto;
+}
+
+.sequence-participant-content {
+  flex: 1;
+  min-height: 200px;
+  background: transparent;
+  position: relative;
+}
+
+.sequence-participant-content::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--ui-border);
+  transform: translateX(-50%);
+}

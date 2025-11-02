@@ -1,7 +1,7 @@
 /**
  * Gravibe Sequence Diagram Generator
- * Generates Mermaid sequence diagrams from trace metamodel data.
- * Based on TraceLens.Server/generators/PlantUml/SequenceGenerator.cs
+ * Custom HTML/CSS/JS sequence diagram renderer based on trace metamodel data.
+ * Replaces Mermaid with a custom implementation for full control.
  */
 
 import { createComponentKey, ComponentKind } from "./metaModel.js";
@@ -11,7 +11,8 @@ import { normalizeColorBrightness, hexToRgb } from "../core/colors.js";
 /**
  * @typedef {import("./trace.js").TraceModel} TraceModel
  * @typedef {import("./trace.js").TraceSpanNode} TraceSpanNode
- * @typedef {import("./metaModel.js").ComponentKind} ComponentKind
+ * @typedef {import("./trace.js").Component} Component
+ * @typedef {import("./trace.js").Group} Group
  */
 
 /**
@@ -21,7 +22,6 @@ import { normalizeColorBrightness, hexToRgb } from "../core/colors.js";
  * @property {boolean} showLogs - Show logs as notes
  * @property {boolean} showAsync - Show async call groups
  * @property {boolean} showRecursion - Show recursive calls (same component)
- * @property {string} theme - Mermaid theme (default, dark, forest, neutral)
  */
 
 const DEFAULT_CONFIG = {
@@ -29,71 +29,43 @@ const DEFAULT_CONFIG = {
   showLogs: true,
   showAsync: true,
   showRecursion: true,
-  theme: "dark",
 };
 
 /**
- * Generates a Mermaid sequence diagram from a trace model
- * @param {TraceModel} trace - The trace model with groups and components
- * @param {SequenceConfig=} config - Configuration options
- * @returns {string} Mermaid sequence diagram syntax
+ * Sequence Diagram Model
+ * @typedef {Object} SequenceModel
+ * @property {Map<string, SequenceGroup>} groups - Map of group ID to group
+ * @property {SequenceParticipant[]} participants - Ordered list of participants (components)
  */
-export function generateSequenceDiagram(trace, config = {}) {
-  const cfg = { ...DEFAULT_CONFIG, ...config };
-  const lines = [];
-
-  console.log("[generateSequenceDiagram] Starting diagram generation");
-  console.log("[generateSequenceDiagram] Trace model:", {
-    traceId: trace.traceId,
-    spanCount: trace.spanCount,
-    rootsCount: trace.roots.length,
-    groupsCount: trace.groups.size,
-    componentsCount: trace.components.size,
-  });
-
-  lines.push("sequenceDiagram");
-  lines.push("    autonumber");
-  console.log("[generateSequenceDiagram] Added sequenceDiagram header and autonumber");
-
-  // Render participants (components grouped by groups) FIRST
-  // This ensures all participants are declared before being used in calls/notes
-  renderParticipants(lines, trace);
-  console.log("[generateSequenceDiagram] Rendered participants, total lines:", lines.length);
-
-  // Verify all participant IDs that are declared
-  const declaredParticipantIds = new Set();
-  lines.forEach((line) => {
-    // Extract participant IDs from declarations: "participant "Name" as id" or "actor "Name" as id"
-    // Also handle lines with extra indentation inside boxes
-    const participantMatch = line.match(/(?:participant|actor|database)\s+(?:"[^"]+"\s+)?as\s+(\w+)/);
-    if (participantMatch) {
-      const id = participantMatch[1];
-      declaredParticipantIds.add(id);
-      console.log(`[generateSequenceDiagram] Found declared participant: ${id} in line: ${line.trim()}`);
-    }
-  });
-  console.log("[generateSequenceDiagram] All declared participant IDs:", Array.from(declaredParticipantIds).sort());
-
-  // Render the sequence from root spans (calls and notes that reference participants)
-  trace.roots.forEach((root, index) => {
-    console.log(`[generateSequenceDiagram] Rendering root ${index + 1}/${trace.roots.length}`);
-    renderChildren(lines, root, trace, cfg);
-  });
-
-  const diagram = lines.join("\n");
-  console.log(`[generateSequenceDiagram] Generated diagram with ${lines.length} lines`);
-
-  return diagram;
-}
 
 /**
- * Renders participants (components) from the metamodel
- * @param {string[]} lines - Output lines array
- * @param {TraceModel} trace - Trace model
+ * Sequence Group
+ * @typedef {Object} SequenceGroup
+ * @property {string} id - Group ID
+ * @property {string} name - Group name
+ * @property {string} backgroundColor - Background color (rgba)
+ * @property {SequenceParticipant[]} participants - Participants in this group
  */
-function renderParticipants(lines, trace) {
-  // Track which components have been rendered to avoid duplicates
-  const renderedComponentIds = new Set();
+
+/**
+ * Sequence Participant (Component)
+ * @typedef {Object} SequenceParticipant
+ * @property {string} id - Component ID
+ * @property {string} name - Component name
+ * @property {string} groupId - Group ID (empty string if no group)
+ * @property {string} backgroundColor - Header/footer background color (solid)
+ */
+
+/**
+ * Builds a sequence diagram model from the trace model
+ * @param {TraceModel} trace - The trace model with groups and components
+ * @returns {SequenceModel}
+ */
+function buildSequenceModel(trace) {
+  console.log("[buildSequenceModel] Building sequence model from trace");
+
+  const groups = new Map();
+  const participants = [];
 
   // Helper to compute service color (same logic as trace viewer)
   const computeServiceColor = (serviceName) => {
@@ -106,663 +78,135 @@ function renderParticipants(lines, trace) {
     return normalizeColorBrightness(paletteColor, 50, 0.7);
   };
 
-  // Build a map of all components by their groupId for easier lookup
-  const componentsByGroup = new Map();
-  trace.components.forEach((component) => {
-    const groupId = component.groupId || "";
-    if (!componentsByGroup.has(groupId)) {
-      componentsByGroup.set(groupId, []);
-    }
-    componentsByGroup.get(groupId).push(component);
-  });
-
-  // First, render components that are not in any group (no groupId or empty groupId)
-  // OR components whose groupId doesn't exist in trace.groups
-  const ungroupedComponents = componentsByGroup.get("") || [];
-  ungroupedComponents.forEach((component) => {
-    const declaration = getComponentDeclaration(component);
-    if (declaration) {
-      lines.push(`    ${declaration}`);
-      renderedComponentIds.add(component.id);
-      console.log(`[renderParticipants] Added ungrouped participant: ${declaration} (id: ${component.id})`);
-    }
-  });
-
-  // Also check for components with groupIds that don't exist in groups
-  trace.components.forEach((component) => {
-    if (component.groupId && component.groupId !== "" && !trace.groups.has(component.groupId)) {
-      if (!renderedComponentIds.has(component.id)) {
-        const declaration = getComponentDeclaration(component);
-        if (declaration) {
-          lines.push(`    ${declaration}`);
-          renderedComponentIds.add(component.id);
-          console.log(`[renderParticipants] Added participant with invalid groupId: ${declaration} (groupId: ${component.groupId}, id: ${component.id})`);
-        }
-      }
-    }
-  });
-
-  // Then, render groups with their components (Mermaid uses "box" not "group")
+  // Build groups map
   trace.groups.forEach((group) => {
-    const groupName = escapeMermaid(group.name);
-    console.log(`[renderParticipants] Rendering group: ${groupName} (id: "${group.id}")`);
+    const groupParticipants = [];
 
-    // Get all components for this group
-    const groupComponents = componentsByGroup.get(group.id) || [];
-    console.log(`[renderParticipants] Found ${groupComponents.length} components for group ${groupName}`);
+    // Find components in this group
+    trace.components.forEach((component) => {
+      if (component.groupId === group.id && component.serviceName) {
+        const color = computeServiceColor(component.serviceName);
+        const rgb = color ? hexToRgb(color) : null;
 
-    if (groupComponents.length > 0) {
-      // Get the service name from the first component in this group to determine box color
-      const firstComponent = groupComponents[0];
-      let boxColor = "";
-      if (firstComponent && firstComponent.serviceName) {
-        const color = computeServiceColor(firstComponent.serviceName);
+        const participant = {
+          id: component.id,
+          name: component.name,
+          groupId: group.id,
+          backgroundColor: rgb ? `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 1.0)` : 'rgba(97, 175, 239, 1.0)',
+        };
+
+        groupParticipants.push(participant);
+        participants.push(participant);
+      }
+    });
+
+    // Get background color from first participant's service
+    const firstComponent = groupParticipants[0];
+    let groupBgColor = "";
+    if (firstComponent && trace.components.has(firstComponent.id)) {
+      const component = trace.components.get(firstComponent.id);
+      if (component?.serviceName) {
+        const color = computeServiceColor(component.serviceName);
         if (color) {
           const rgb = hexToRgb(color);
           if (rgb) {
-            // Use semi-transparent color for the box background
-            boxColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.2)`;
-            console.log(`[renderParticipants] Box color for group ${groupName}: ${boxColor} (service: ${firstComponent.serviceName})`);
+            groupBgColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.2)`;
           }
         }
       }
-
-      // Mermaid box syntax: box [color] name
-      if (boxColor) {
-        lines.push(`    box ${boxColor} ${groupName}`);
-      } else {
-        lines.push(`    box ${groupName}`);
-      }
-
-      groupComponents.forEach((component) => {
-        // Only render if not already rendered
-        if (!renderedComponentIds.has(component.id)) {
-          const declaration = getComponentDeclaration(component);
-          if (declaration) {
-            lines.push(`        ${declaration}`);
-            renderedComponentIds.add(component.id);
-            console.log(`[renderParticipants] Added participant to group ${groupName}: ${declaration} (component.groupId: "${component.groupId}", id: ${component.id})`);
-          }
-        } else {
-          console.warn(`[renderParticipants] Component ${component.id} (groupId: "${component.groupId}") already rendered, skipping duplicate`);
-        }
-      });
-
-      lines.push(`    end`);
-    } else {
-      console.warn(`[renderParticipants] Group ${groupName} (id: "${group.id}") has no components`);
-    }
-  });
-
-  const totalParticipants = lines.filter(l => l.includes('participant') || l.includes('actor') || l.includes('database')).length;
-  console.log(`[renderParticipants] Summary - Total participant lines: ${totalParticipants}, Unique components rendered: ${renderedComponentIds.size}`);
-
-  // Warn if we have duplicates
-  if (totalParticipants !== renderedComponentIds.size) {
-    console.warn(`[renderParticipants] WARNING: Possible duplicate participants! Lines: ${totalParticipants}, Unique: ${renderedComponentIds.size}`);
-    // Log all component IDs for debugging
-    console.log(`[renderParticipants] Rendered component IDs:`, Array.from(renderedComponentIds));
-  }
-}
-
-/**
- * Gets the Mermaid participant declaration for a component
- * @param {import("./trace.js").Component} component
- * @returns {string|null}
- */
-function getComponentDeclaration(component) {
-  const name = escapeMermaid(component.name);
-  // Mermaid IDs must be alphanumeric and cannot contain special characters like colons
-  // Replace colons and other special chars with underscores
-  const id = escapeMermaidId(component.id);
-
-  // Mermaid sequence diagrams only support "participant" and "actor"
-  // All other types (database, queue, etc.) must use "participant"
-  // Correct syntax: participant id as "pretty name"
-  switch (component.kind) {
-    case "actor":
-      return `actor ${id} as "${name}"`;
-    case "endpoint":
-    case "queue":
-    case "database":
-    case "databasestatement":
-    case "queueconsumer":
-    case "workflow":
-    case "activity":
-    case "start":
-    default:
-      // All types use "participant" (Mermaid sequence diagrams only support participant and actor)
-      // Syntax: participant id as "pretty name"
-      return `participant ${id} as "${name}"`;
-  }
-}
-
-/**
- * Applies colors directly to participant header rectangles in the rendered SVG
- * @param {HTMLElement} host - Container element with the rendered Mermaid diagram
- * @param {TraceModel} trace - Trace model with components and serviceNameMapping
- */
-function applyParticipantColors(host, trace) {
-  if (!trace || !trace.components || !trace.serviceNameMapping) {
-    console.warn("[applyParticipantColors] Missing trace data");
-    return;
-  }
-
-  console.log("[applyParticipantColors] Applying colors to participant headers");
-
-  const mermaidSvg = host.querySelector("svg");
-  if (!mermaidSvg) {
-    console.warn("[applyParticipantColors] Mermaid SVG not found");
-    return;
-  }
-
-  // Get palette colors (same as trace viewer)
-  const paletteColors = getPaletteColors();
-  if (paletteColors.length === 0) {
-    console.warn("[applyParticipantColors] No palette colors available");
-    return;
-  }
-  const paletteLength = paletteColors.length;
-
-  // Helper to compute service color (same logic as trace viewer)
-  const computeServiceColor = (serviceName) => {
-    const serviceIndex = trace.serviceNameMapping?.get(serviceName) ?? 0;
-    const colorIndex = serviceIndex % paletteLength;
-    const paletteColor = paletteColors[colorIndex];
-    if (!paletteColor) {
-      return "#61afef"; // Fallback
-    }
-    return normalizeColorBrightness(paletteColor, 50, 0.7);
-  };
-
-  // Find all participant header rectangles by their name attribute
-  // Example: <rect class="actor actor-top" name="edge_gateway_Internal" ...>
-  trace.components.forEach((component) => {
-    if (component.serviceName) {
-      const escapedId = escapeMermaidId(component.id);
-      const color = computeServiceColor(component.serviceName);
-      const rgb = hexToRgb(color);
-
-      if (rgb) {
-        // Find all rects with this name attribute (typically actor-top and actor-bottom)
-        const rects = mermaidSvg.querySelectorAll(`rect[name="${escapedId}"]`);
-
-        if (rects.length > 0) {
-          rects.forEach((rect) => {
-            // Use style property instead of setAttribute to override CSS
-            // Use solid colors (alpha 1.0) so swimlane lines don't show through
-            rect.style.fill = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 1.0)`;
-            rect.style.stroke = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 1.0)`;
-            rect.style.strokeWidth = "2px";
-          });
-
-          console.log(`[applyParticipantColors] Applied color to ${rects.length} rect(s) with name="${escapedId}" (${component.serviceName}): rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 1.0)`);
-        } else {
-          console.warn(`[applyParticipantColors] No rects found with name="${escapedId}"`);
-        }
-      }
-    }
-  });
-}
-
-/**
- * Renders children recursively, creating calls between participants
- * @param {string[]} lines - Output lines array
- * @param {TraceSpanNode} parent - Parent node
- * @param {TraceModel} trace - Trace model
- * @param {SequenceConfig} config - Configuration
- */
-function renderChildren(lines, parent, trace, config) {
-  if (!parent.children || parent.children.length === 0) {
-    return;
-  }
-
-  let startTime = 0;
-  let endTime = parent.children[0]?.span.startTimeUnixNano || Number.MAX_SAFE_INTEGER;
-
-  // Render logs before first child
-  if (config.showLogs) {
-    renderLogs(lines, parent, startTime, endTime, trace, config);
-  }
-  startTime = endTime;
-
-  parent.children.forEach((child) => {
-    endTime = child.span.startTimeUnixNano || Number.MAX_SAFE_INTEGER;
-
-    // Render logs before this child call
-    if (config.showLogs) {
-      renderLogs(lines, parent, startTime, endTime, trace, config);
-    }
-    startTime = endTime;
-
-    const parentDesc = parent.description;
-    const childDesc = child.description;
-
-    if (!parentDesc || !childDesc) {
-      renderChildren(lines, child, trace, config);
-      return;
     }
 
-    const parentComponentId = getComponentId(parent, trace);
-    const childComponentId = getComponentId(child, trace);
-
-    // Check if this is a client call (flatten) - render inline
-    if (childDesc.isClient) {
-      if (config.showAttributes) {
-        renderAttributes(lines, child, trace, config);
-      }
-      renderChildren(lines, child, trace, config);
-    } else {
-      // Regular call - show as participant interaction
-      const isRecursion = parentComponentId === childComponentId;
-
-      if (isRecursion) {
-        console.log(`[renderChildren] Self-call detected: ${parentComponentId} -> ${childComponentId} (showRecursion: ${config.showRecursion})`);
-      }
-
-      // Only render call start/end if NOT a recursion OR if showRecursion is enabled
-      // This matches the C# implementation: hides self-calls by default
-      if (!isRecursion || config.showRecursion) {
-        renderCallStart(lines, child, parent, trace, config);
-      } else {
-        console.log(`[renderChildren] Skipping self-call rendering for ${parentComponentId} (showRecursion is false)`);
-      }
-
-      if (config.showAttributes) {
-        renderAttributes(lines, child, trace, config);
-      }
-
-      renderChildren(lines, child, trace, config);
-
-      if (!isRecursion || config.showRecursion) {
-        renderCallEnd(lines, child, parent, trace, config);
-      }
-    }
-  });
-
-  // Render logs after all children
-  if (config.showLogs) {
-    renderLogs(lines, parent, startTime, Number.MAX_SAFE_INTEGER, trace, config);
-  }
-}
-
-/**
- * Gets the component ID for a node
- * @param {TraceSpanNode} node
- * @param {TraceModel} trace
- * @returns {string}
- */
-function getComponentId(node, trace) {
-  if (!node.description) {
-    console.warn(`[getComponentId] Node ${node.span.spanId} has no description, returning "unknown"`);
-    return "unknown";
-  }
-
-  // Apply the same normalization logic as buildTraceModel()
-  // This ensures we use the same groupName/componentName that were used when creating the component
-  let groupName = node.description.groupName || "";
-  let componentName = node.description.componentName || "";
-
-  // Normalize: if component is Service and group is empty, use component name as group
-  // This matches the logic in buildTraceModel() lines 360-363
-  if (node.description.componentKind === ComponentKind.SERVICE && !groupName) {
-    groupName = componentName;
-    componentName = "Internal";
-  }
-  if (!componentName) {
-    componentName = "Unknown";
-  }
-
-  const componentId = createComponentKey(groupName, componentName);
-
-  const exists = trace.components.has(componentId);
-  if (!exists) {
-    console.warn(`[getComponentId] Component ${componentId} not found in trace.components (original groupName: "${node.description.groupName}", original componentName: "${node.description.componentName}", normalized groupName: "${groupName}", normalized componentName: "${componentName}")`);
-    // Log all available component IDs for debugging
-    console.log(`[getComponentId] Available component IDs:`, Array.from(trace.components.keys()));
-  }
-
-  return exists ? componentId : "unknown";
-}
-
-/**
- * Renders a call start (request)
- * @param {string[]} lines - Output lines array
- * @param {TraceSpanNode} child - Child node making the call
- * @param {TraceSpanNode} parent - Parent node
- * @param {TraceModel} trace - Trace model
- * @param {SequenceConfig} config - Configuration
- */
-function renderCallStart(lines, child, parent, trace, config) {
-  const parentId = escapeMermaidId(getComponentId(parent, trace));
-  const childId = escapeMermaidId(getComponentId(child, trace));
-  const operation = child.description?.operation || child.span.name || "";
-
-  // Determine if sync or async (simplified - could be enhanced)
-  const isSync = true; // Default to sync, could check span kind or attributes
-
-  const escapedOperation = escapeMermaid(operation);
-
-  console.log(`[renderCallStart] ${parentId} -> ${childId}: ${escapedOperation}`);
-
-  if (isSync) {
-    lines.push(
-      `    ${parentId}->>+${childId}: ${escapedOperation}`
-    );
-  } else {
-    if (config.showAsync) {
-      lines.push(`    box async`);
-    }
-    lines.push(
-      `    ${parentId}-->>+${childId}: ${escapedOperation}`
-    );
-  }
-}
-
-/**
- * Renders a call end (response)
- * @param {string[]} lines - Output lines array
- * @param {TraceSpanNode} child - Child node
- * @param {TraceSpanNode} parent - Parent node
- * @param {TraceModel} trace - Trace model
- * @param {SequenceConfig} config - Configuration
- */
-function renderCallEnd(lines, child, parent, trace, config) {
-  const parentId = escapeMermaidId(getComponentId(parent, trace));
-  const childId = escapeMermaidId(getComponentId(child, trace));
-  const response = child.description?.operation || "return";
-
-  const isSync = true; // Default to sync
-
-  const escapedResponse = escapeMermaid(response);
-
-  console.log(`[renderCallEnd] ${childId} -> ${parentId}: ${escapedResponse}`);
-
-  if (isSync) {
-    lines.push(
-      `    ${childId}-->>-${parentId}: ${escapedResponse}`
-    );
-  } else {
-    if (config.showAsync) {
-      lines.push(`    end`);
-    }
-  }
-}
-
-/**
- * Renders attributes as notes
- * @param {string[]} lines - Output lines array
- * @param {TraceSpanNode} node - Node to render attributes for
- * @param {TraceModel} trace - Trace model (for getting component ID)
- * @param {SequenceConfig} config - Configuration
- */
-function renderAttributes(lines, node, trace, config) {
-  if (!config.showAttributes) {
-    return;
-  }
-
-  const componentId = escapeMermaidId(getComponentId(node, trace));
-
-  const attributes = [];
-  if (node.span.attributes && Array.isArray(node.span.attributes)) {
-    node.span.attributes.forEach((attr) => {
-      const key = attr.key || "";
-      const value = formatAttributeValue(attr.value);
-      attributes.push(`${key}: ${value}`);
+    groups.set(group.id, {
+      id: group.id,
+      name: group.name,
+      backgroundColor: groupBgColor,
+      participants: groupParticipants,
     });
-  }
-
-  if (attributes.length > 0) {
-    // Use actual newlines (\n) which escapeMermaid will convert to <br/>
-    // Mermaid doesn't support **bold** markdown, so use uppercase for emphasis
-    const noteText = `ATTRIBUTES\n${attributes.join("\n")}`;
-    const escapedNote = escapeMermaid(noteText);
-    lines.push(`    Note over ${componentId}: ${escapedNote}`);
-    console.log(`[renderAttributes] Added note over participant ID: ${componentId} (component.id lookup result)`);
-  }
-
-  // Special handling for HTTP URL
-  const httpUrl = getSpanAttribute(node.span, "http.url");
-  if (httpUrl) {
-    // Use actual newline (\n) which escapeMermaid will convert to <br/>
-    const escapedUrl = escapeMermaid(`URL\n${httpUrl}`);
-    lines.push(`    Note over ${componentId}: ${escapedUrl}`);
-  }
-
-  // Special handling for SQL statements
-  const sql = getSpanAttribute(node.span, "db.statement");
-  if (sql) {
-    // Use actual newline (\n) which escapeMermaid will convert to <br/>
-    const escapedSql = escapeMermaid(`STATEMENT\n${sql}`);
-    lines.push(`    Note over ${componentId}: ${escapedSql}`);
-  }
-}
-
-/**
- * Renders logs as notes
- * @param {string[]} lines - Output lines array
- * @param {TraceSpanNode} node - Node to render logs for
- * @param {number} startTime - Start timestamp
- * @param {number} endTime - End timestamp
- * @param {TraceModel} trace - Trace model (for getting component ID)
- * @param {SequenceConfig} config - Configuration
- */
-function renderLogs(lines, node, startTime, endTime, trace, config) {
-  if (!config.showLogs || !node.logs || !Array.isArray(node.logs)) {
-    return;
-  }
-
-  // Filter logs by time range and exclude span/event logs
-  const filteredLogs = node.logs.filter((log) => {
-    const logTime = toNumberTimestamp(log.timeUnixNano);
-    const severity = log.severityText?.toLowerCase() || "";
-    return (
-      logTime >= startTime &&
-      logTime < endTime &&
-      severity !== "span" &&
-      severity !== "event" &&
-      severity !== "diagnostics"
-    );
   });
 
-  if (filteredLogs.length === 0) {
-    return;
-  }
+  // Add ungrouped participants (components without a group or with invalid groupId)
+  trace.components.forEach((component) => {
+    const isGrouped = component.groupId && component.groupId !== "" && trace.groups.has(component.groupId);
+    if (!isGrouped && component.serviceName) {
+      // Check if this participant was already added as part of a group
+      const alreadyAdded = participants.some(p => p.id === component.id);
+      if (!alreadyAdded) {
+        const color = computeServiceColor(component.serviceName);
+        const rgb = color ? hexToRgb(color) : null;
 
-  const logTexts = [];
-  filteredLogs.forEach((log) => {
-    const text = formatLog(log);
-    if (text) {
-      logTexts.push(text);
+        const participant = {
+          id: component.id,
+          name: component.name,
+          groupId: "", // No group
+          backgroundColor: rgb ? `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 1.0)` : 'rgba(97, 175, 239, 1.0)',
+        };
+
+        participants.push(participant);
+      }
     }
   });
 
-  // Limit log length
-  const logsText = logTexts.join("\n").substring(0, 600);
-  if (logsText) {
-    const componentId = escapeMermaidId(getComponentId(node, trace));
-    // Use actual newline (\n) which escapeMermaid will convert to <br/>
-    // Mermaid doesn't support **bold** markdown, so use uppercase for emphasis
-    const escapedLogs = escapeMermaid(`LOGS\n${logsText}`);
-    lines.push(`    Note over ${componentId}: ${escapedLogs}`);
-    console.log(`[renderLogs] Added logs note over ${componentId}`);
-  }
-
-  // Render error logs separately
-  renderErrorLogs(lines, node, startTime, endTime, trace, config);
-}
-
-/**
- * Renders error logs as notes
- * @param {string[]} lines - Output lines array
- * @param {TraceSpanNode} node - Node to render error logs for
- * @param {number} startTime - Start timestamp
- * @param {number} endTime - End timestamp
- * @param {TraceModel} trace - Trace model (for getting component ID)
- * @param {SequenceConfig} config - Configuration
- */
-function renderErrorLogs(lines, node, startTime, endTime, trace, config) {
-  if (!config.showLogs || !node.logs || !Array.isArray(node.logs)) {
-    return;
-  }
-
-  const errorLogs = node.logs.filter((log) => {
-    const logTime = toNumberTimestamp(log.timeUnixNano);
-    const severity = log.severityText?.toLowerCase() || "";
-    return (
-      logTime >= startTime &&
-      logTime < endTime &&
-      (severity === "error" || log.severityNumber >= 17)
-    );
+  console.log("[buildSequenceModel] Built model:", {
+    groups: groups.size,
+    participants: participants.length,
   });
 
-  if (errorLogs.length === 0) {
-    return;
-  }
+  return {
+    groups,
+    participants,
+  };
+}
 
-  const errorTexts = [];
-  errorLogs.forEach((log) => {
-    const text = formatLogWithAttributes(log);
-    if (text) {
-      errorTexts.push(text);
-    }
+/**
+ * Renders the sequence diagram as HTML
+ * @param {SequenceModel} sequenceModel - The sequence model
+ * @returns {HTMLElement} The rendered diagram container
+ */
+function renderSequenceDiagram(sequenceModel) {
+  console.log("[renderSequenceDiagram] Rendering diagram");
+
+  const container = document.createElement("div");
+  container.className = "custom-sequence-diagram";
+
+  // Create groups container (for background colors)
+  // Groups are positioned behind participants as background
+  // We'll render groups later once we know participant positions
+
+  // Create participants container (flex row)
+  const participantsContainer = document.createElement("div");
+  participantsContainer.className = "sequence-participants";
+
+  // Render each participant as a column
+  sequenceModel.participants.forEach((participant) => {
+    const participantColumn = document.createElement("div");
+    participantColumn.className = "sequence-participant-column";
+    participantColumn.dataset.participantId = participant.id;
+
+    // Header
+    const header = document.createElement("div");
+    header.className = "sequence-participant-header";
+    header.style.backgroundColor = participant.backgroundColor;
+    header.textContent = participant.name;
+    participantColumn.appendChild(header);
+
+    // Content area (where calls and notes will go later)
+    const content = document.createElement("div");
+    content.className = "sequence-participant-content";
+    participantColumn.appendChild(content);
+
+    // Footer (identical to header)
+    const footer = document.createElement("div");
+    footer.className = "sequence-participant-footer";
+    footer.style.backgroundColor = participant.backgroundColor;
+    footer.textContent = participant.name;
+    participantColumn.appendChild(footer);
+
+    participantsContainer.appendChild(participantColumn);
   });
 
-  const errorsText = errorTexts.join("\n").substring(0, 600);
-  if (errorsText) {
-    const componentId = escapeMermaidId(getComponentId(node, trace));
-    // Use actual newline (\n) which escapeMermaid will convert to <br/>
-    // Mermaid doesn't support **bold** markdown, so use uppercase for emphasis
-    const escapedErrors = escapeMermaid(`ERRORS\n${errorsText}`);
-    lines.push(
-      `    Note over ${componentId}: ${escapedErrors}`
-    );
-    console.log(`[renderErrorLogs] Added error note over ${componentId}`);
-  }
-}
+  container.appendChild(participantsContainer);
 
-/**
- * Formats a log entry for display
- * @param {import("./logs.js").LogRow} log
- * @returns {string}
- */
-function formatLog(log) {
-  const template = log.template || "";
-  // Simple formatting - could be enhanced with attribute substitution
-  return template;
-}
-
-/**
- * Formats a log entry with attributes
- * @param {import("./logs.js").LogRow} log
- * @returns {string}
- */
-function formatLogWithAttributes(log) {
-  let text = formatLog(log);
-  if (log.attributes && Array.isArray(log.attributes)) {
-    const attrs = log.attributes
-      .map((attr) => {
-        const key = attr.key || "";
-        const value = formatAttributeValue(attr.value);
-        return `${key}: ${value}`;
-      })
-      .join(", ");
-    if (attrs) {
-      text += ` (${attrs})`;
-    }
-  }
-  return text;
-}
-
-/**
- * Gets a span attribute value
- * @param {import("./trace.js").TraceSpan} span
- * @param {string} key
- * @returns {string}
- */
-function getSpanAttribute(span, key) {
-  if (!span.attributes || !Array.isArray(span.attributes)) {
-    return "";
-  }
-  const attr = span.attributes.find((a) => a.key === key);
-  if (!attr || !attr.value) {
-    return "";
-  }
-  if (typeof attr.value === "string") {
-    return attr.value;
-  }
-  if (attr.value && typeof attr.value === "object" && "value" in attr.value) {
-    return String(attr.value.value || "");
-  }
-  return String(attr.value || "");
-}
-
-/**
- * Formats an attribute value for display
- * @param {any} value
- * @returns {string}
- */
-function formatAttributeValue(value) {
-  if (typeof value === "string") {
-    return value;
-  }
-  if (value && typeof value === "object" && "value" in value) {
-    return String(value.value || "");
-  }
-  return String(value || "");
-}
-
-/**
- * Converts timestamp to number
- * @param {number|bigint} value
- * @returns {number}
- */
-function toNumberTimestamp(value) {
-  if (typeof value === "number") {
-    return value;
-  }
-  if (typeof value === "bigint") {
-    return Number(value);
-  }
-  return Number.parseFloat(value) || 0;
-}
-
-/**
- * Escapes special characters for Mermaid syntax (for labels and text)
- * Mermaid sequence diagrams support <br/> for line breaks but NOT HTML tags like <b> for bold
- * @param {string} text
- * @returns {string}
- */
-function escapeMermaid(text) {
-  if (!text) {
-    return "";
-  }
-  return String(text)
-    .replace(/"/g, '&quot;')
-    .replace(/\n/g, "<br/>")  // Convert newlines to <br/> tags (Mermaid supports this)
-    .replace(/\[/g, "&#91;")
-    .replace(/\]/g, "&#93;")
-    .replace(/\{/g, "&#123;")
-    .replace(/\}/g, "&#125;")
-    .replace(/=/g, "&#61;");
-  // Note: Mermaid does NOT support <b>bold</b> or other HTML formatting tags in sequence diagrams
-  // Markdown **bold** also doesn't work - use uppercase text for emphasis instead
-}
-
-/**
- * Escapes special characters for Mermaid ID (alphanumeric + underscore only)
- * @param {string} id
- * @returns {string}
- */
-function escapeMermaidId(id) {
-  if (!id) {
-    return "unknown";
-  }
-  // Mermaid IDs should be alphanumeric and underscores only
-  // Replace colons, spaces, and other special chars with underscores
-  return String(id)
-    .replace(/[^a-zA-Z0-9_]/g, "_")
-    .replace(/^[0-9]/, "_$&"); // Cannot start with a number
+  return container;
 }
 
 /**
@@ -779,9 +223,8 @@ export function initSequenceDiagram(host, spans, config = {}) {
     return { render: () => { }, update: () => { } };
   }
 
-  // Import trace building function
   let trace = null;
-  let mermaidDiagram = "";
+  let sequenceModel = null;
 
   const render = async () => {
     if (!spans || spans.length === 0) {
@@ -794,78 +237,26 @@ export function initSequenceDiagram(host, spans, config = {}) {
       const traceModule = await import("./trace.js");
       const { buildTraceModel, ensureSampleLogRowsLoaded } = traceModule;
 
-      // Ensure log rows are loaded (already loaded by appendLogsFromSpans)
+      // Ensure log rows are loaded
       await ensureSampleLogRowsLoaded();
 
-      // Get log rows via the sampleData module (same as trace viewer does)
+      // Get log rows via the sampleData module
       const { sampleLogRows } = await import("./sampleData.js");
 
       // Build trace model with logs merged
       trace = buildTraceModel(spans, sampleLogRows);
 
-      // Generate Mermaid diagram
-      mermaidDiagram = generateSequenceDiagram(trace, config);
+      // Build sequence model from trace model
+      sequenceModel = buildSequenceModel(trace);
 
-      // Log the generated Mermaid diagram for debugging
-      console.log("[initSequenceDiagram] Generated Mermaid diagram:");
-      console.log("=".repeat(80));
-      console.log(mermaidDiagram);
-      console.log("=".repeat(80));
+      // Render the diagram
+      const diagram = renderSequenceDiagram(sequenceModel);
 
-      // Render Mermaid diagram
-      host.innerHTML = `<div class="mermaid">${mermaidDiagram}</div>`;
+      // Clear and append
+      host.innerHTML = "";
+      host.appendChild(diagram);
 
-      // Initialize Mermaid if available
-      if (typeof mermaid !== "undefined") {
-        console.log("[initSequenceDiagram] Initializing Mermaid with theme:", config.theme || "dark");
-
-        // Get CSS variables for note styling
-        const rootStyles = getComputedStyle(document.documentElement);
-        const surface2 = rootStyles.getPropertyValue('--surface-2').trim() || '#1f2020';
-        const borderColor = rootStyles.getPropertyValue('--border').trim() || '#3a3a3a';
-
-        console.log("[initSequenceDiagram] Note styling - surface-2:", surface2, "border:", borderColor);
-
-        mermaid.initialize({
-          startOnLoad: true,
-          theme: config.theme || "dark",
-          themeVariables: {
-            // Set actor fill to transparent so we can control it
-            actorBkg: 'transparent',
-            actorBorder: '#81B1DB',
-            // Style notes with surface-2 and border variables
-            noteBkgColor: surface2,
-            noteBorderColor: borderColor,
-            noteTextColor: '#ffffff',
-          },
-          sequence: {
-            diagramMarginX: 50,
-            diagramMarginY: 10,
-            actorMargin: 50,
-            width: 150,
-            height: 65,
-            boxMargin: 10,
-            boxTextMargin: 5,
-            noteMargin: 10,
-            messageMargin: 35,
-            noteAlign: 'left', // Left-align note text
-            noteFontSize: '12px', // Smaller font for notes
-            noteFontWeight: 'normal', // Normal weight instead of bold
-            fontSize: 14, // Overall font size for the diagram
-          }
-        });
-        console.log("[initSequenceDiagram] Calling mermaid.contentLoaded()");
-
-        // Render the Mermaid diagram
-        mermaid.contentLoaded();
-
-        // Apply colors to participant headers after rendering
-        setTimeout(() => {
-          applyParticipantColors(host, trace);
-        }, 100);
-      } else {
-        console.warn("[initSequenceDiagram] Mermaid.js not loaded. Include mermaid.js script.");
-      }
+      console.log("[initSequenceDiagram] Sequence diagram rendered");
     } catch (error) {
       console.error("[initSequenceDiagram] Error rendering diagram:", error);
       host.innerHTML = `<p>Error rendering sequence diagram: ${error.message}</p>`;
@@ -873,12 +264,11 @@ export function initSequenceDiagram(host, spans, config = {}) {
   };
 
   const update = () => {
-    // Re-apply colors when palette changes (faster than full re-render)
-    if (trace) {
-      console.log("[initSequenceDiagram] Updating participant colors");
-      applyParticipantColors(host, trace);
+    // Re-render when palette changes
+    if (sequenceModel) {
+      console.log("[initSequenceDiagram] Updating sequence diagram");
+      render();
     } else {
-      // If trace not built yet, do full render
       render();
     }
   };
@@ -889,3 +279,5 @@ export function initSequenceDiagram(host, spans, config = {}) {
   return { render, update };
 }
 
+// Export for testing/debugging
+export { buildSequenceModel, renderSequenceDiagram };
