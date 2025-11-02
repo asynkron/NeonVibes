@@ -59,7 +59,7 @@ export function generateSequenceDiagram(trace, config = {}) {
   // This ensures all participants are declared before being used in calls/notes
   renderParticipants(lines, trace);
   console.log("[generateSequenceDiagram] Rendered participants, total lines:", lines.length);
-  
+
   // Verify all participant IDs that are declared
   const declaredParticipantIds = new Set();
   lines.forEach((line) => {
@@ -82,7 +82,7 @@ export function generateSequenceDiagram(trace, config = {}) {
 
   const diagram = lines.join("\n");
   console.log(`[generateSequenceDiagram] Generated diagram with ${lines.length} lines`);
-  
+
   return diagram;
 }
 
@@ -94,7 +94,18 @@ export function generateSequenceDiagram(trace, config = {}) {
 function renderParticipants(lines, trace) {
   // Track which components have been rendered to avoid duplicates
   const renderedComponentIds = new Set();
-  
+
+  // Helper to compute service color (same logic as trace viewer)
+  const computeServiceColor = (serviceName) => {
+    const paletteColors = getPaletteColors();
+    if (paletteColors.length === 0) return null;
+    const serviceIndex = trace.serviceNameMapping?.get(serviceName) ?? 0;
+    const colorIndex = serviceIndex % paletteColors.length;
+    const paletteColor = paletteColors[colorIndex];
+    if (!paletteColor) return null;
+    return normalizeColorBrightness(paletteColor, 50, 0.7);
+  };
+
   // Build a map of all components by their groupId for easier lookup
   const componentsByGroup = new Map();
   trace.components.forEach((component) => {
@@ -135,14 +146,34 @@ function renderParticipants(lines, trace) {
   trace.groups.forEach((group) => {
     const groupName = escapeMermaid(group.name);
     console.log(`[renderParticipants] Rendering group: ${groupName} (id: "${group.id}")`);
-    
+
     // Get all components for this group
     const groupComponents = componentsByGroup.get(group.id) || [];
     console.log(`[renderParticipants] Found ${groupComponents.length} components for group ${groupName}`);
-    
+
     if (groupComponents.length > 0) {
-      lines.push(`    box ${groupName}`);
-      
+      // Get the service name from the first component in this group to determine box color
+      const firstComponent = groupComponents[0];
+      let boxColor = "";
+      if (firstComponent && firstComponent.serviceName) {
+        const color = computeServiceColor(firstComponent.serviceName);
+        if (color) {
+          const rgb = hexToRgb(color);
+          if (rgb) {
+            // Use semi-transparent color for the box background
+            boxColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.2)`;
+            console.log(`[renderParticipants] Box color for group ${groupName}: ${boxColor} (service: ${firstComponent.serviceName})`);
+          }
+        }
+      }
+
+      // Mermaid box syntax: box [color] name
+      if (boxColor) {
+        lines.push(`    box ${boxColor} ${groupName}`);
+      } else {
+        lines.push(`    box ${groupName}`);
+      }
+
       groupComponents.forEach((component) => {
         // Only render if not already rendered
         if (!renderedComponentIds.has(component.id)) {
@@ -156,16 +187,16 @@ function renderParticipants(lines, trace) {
           console.warn(`[renderParticipants] Component ${component.id} (groupId: "${component.groupId}") already rendered, skipping duplicate`);
         }
       });
-      
+
       lines.push(`    end`);
     } else {
       console.warn(`[renderParticipants] Group ${groupName} (id: "${group.id}") has no components`);
     }
   });
-  
+
   const totalParticipants = lines.filter(l => l.includes('participant') || l.includes('actor') || l.includes('database')).length;
   console.log(`[renderParticipants] Summary - Total participant lines: ${totalParticipants}, Unique components rendered: ${renderedComponentIds.size}`);
-  
+
   // Warn if we have duplicates
   if (totalParticipants !== renderedComponentIds.size) {
     console.warn(`[renderParticipants] WARNING: Possible duplicate participants! Lines: ${totalParticipants}, Unique: ${renderedComponentIds.size}`);
@@ -251,11 +282,11 @@ function applyParticipantColors(host, trace) {
       const escapedId = escapeMermaidId(component.id);
       const color = computeServiceColor(component.serviceName);
       const rgb = hexToRgb(color);
-      
+
       if (rgb) {
         // Find all rects with this name attribute (typically actor-top and actor-bottom)
         const rects = mermaidSvg.querySelectorAll(`rect[name="${escapedId}"]`);
-        
+
         if (rects.length > 0) {
           rects.forEach((rect) => {
             // Use style property instead of setAttribute to override CSS
@@ -264,7 +295,7 @@ function applyParticipantColors(host, trace) {
             rect.style.stroke = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 1.0)`;
             rect.style.strokeWidth = "2px";
           });
-          
+
           console.log(`[applyParticipantColors] Applied color to ${rects.length} rect(s) with name="${escapedId}" (${component.serviceName}): rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 1.0)`);
         } else {
           console.warn(`[applyParticipantColors] No rects found with name="${escapedId}"`);
@@ -324,7 +355,7 @@ function renderChildren(lines, parent, trace, config) {
     } else {
       // Regular call - show as participant interaction
       const isRecursion = parentComponentId === childComponentId;
-      
+
       if (isRecursion) {
         console.log(`[renderChildren] Self-call detected: ${parentComponentId} -> ${childComponentId} (showRecursion: ${config.showRecursion})`);
       }
@@ -371,7 +402,7 @@ function getComponentId(node, trace) {
   // This ensures we use the same groupName/componentName that were used when creating the component
   let groupName = node.description.groupName || "";
   let componentName = node.description.componentName || "";
-  
+
   // Normalize: if component is Service and group is empty, use component name as group
   // This matches the logic in buildTraceModel() lines 360-363
   if (node.description.componentKind === ComponentKind.SERVICE && !groupName) {
@@ -390,7 +421,7 @@ function getComponentId(node, trace) {
     // Log all available component IDs for debugging
     console.log(`[getComponentId] Available component IDs:`, Array.from(trace.components.keys()));
   }
-  
+
   return exists ? componentId : "unknown";
 }
 
@@ -411,7 +442,7 @@ function renderCallStart(lines, child, parent, trace, config) {
   const isSync = true; // Default to sync, could check span kind or attributes
 
   const escapedOperation = escapeMermaid(operation);
-  
+
   console.log(`[renderCallStart] ${parentId} -> ${childId}: ${escapedOperation}`);
 
   if (isSync) {
@@ -444,7 +475,7 @@ function renderCallEnd(lines, child, parent, trace, config) {
   const isSync = true; // Default to sync
 
   const escapedResponse = escapeMermaid(response);
-  
+
   console.log(`[renderCallEnd] ${childId} -> ${parentId}: ${escapedResponse}`);
 
   if (isSync) {
@@ -745,7 +776,7 @@ export function initSequenceDiagram(host, spans, config = {}) {
   console.log("[initSequenceDiagram] Called, host:", host);
   if (!host) {
     console.log("[initSequenceDiagram] No host, returning empty functions");
-    return { render: () => {}, update: () => {} };
+    return { render: () => { }, update: () => { } };
   }
 
   // Import trace building function
@@ -762,13 +793,13 @@ export function initSequenceDiagram(host, spans, config = {}) {
       // Import and build trace model
       const traceModule = await import("./trace.js");
       const { buildTraceModel, ensureSampleLogRowsLoaded } = traceModule;
-      
+
       // Ensure log rows are loaded (already loaded by appendLogsFromSpans)
       await ensureSampleLogRowsLoaded();
-      
+
       // Get log rows via the sampleData module (same as trace viewer does)
       const { sampleLogRows } = await import("./sampleData.js");
-      
+
       // Build trace model with logs merged
       trace = buildTraceModel(spans, sampleLogRows);
 
@@ -787,13 +818,25 @@ export function initSequenceDiagram(host, spans, config = {}) {
       // Initialize Mermaid if available
       if (typeof mermaid !== "undefined") {
         console.log("[initSequenceDiagram] Initializing Mermaid with theme:", config.theme || "dark");
-        mermaid.initialize({ 
+
+        // Get CSS variables for note styling
+        const rootStyles = getComputedStyle(document.documentElement);
+        const surface2 = rootStyles.getPropertyValue('--surface-2').trim() || '#1f2020';
+        const borderColor = rootStyles.getPropertyValue('--border').trim() || '#3a3a3a';
+
+        console.log("[initSequenceDiagram] Note styling - surface-2:", surface2, "border:", borderColor);
+
+        mermaid.initialize({
           startOnLoad: true,
           theme: config.theme || "dark",
           themeVariables: {
             // Set actor fill to transparent so we can control it
             actorBkg: 'transparent',
             actorBorder: '#81B1DB',
+            // Style notes with surface-2 and border variables
+            noteBkgColor: surface2,
+            noteBorderColor: borderColor,
+            noteTextColor: '#ffffff',
           },
           sequence: {
             diagramMarginX: 50,
@@ -805,13 +848,17 @@ export function initSequenceDiagram(host, spans, config = {}) {
             boxTextMargin: 5,
             noteMargin: 10,
             messageMargin: 35,
+            noteAlign: 'left', // Left-align note text
+            noteFontSize: '12px', // Smaller font for notes
+            noteFontWeight: 'normal', // Normal weight instead of bold
+            fontSize: 14, // Overall font size for the diagram
           }
         });
         console.log("[initSequenceDiagram] Calling mermaid.contentLoaded()");
-        
+
         // Render the Mermaid diagram
         mermaid.contentLoaded();
-        
+
         // Apply colors to participant headers after rendering
         setTimeout(() => {
           applyParticipantColors(host, trace);
