@@ -201,8 +201,17 @@ function buildServiceNameMapping(spans) {
 /**
  * Builds a hierarchical trace model so spans become aware of their children
  * without mutating the original span definitions.
+ * 
+ * During build, this function:
+ * - Extracts span descriptions to build groups and components
+ * - Merges logs and events into span nodes (same lookup as trace component used to do)
+ * - Creates virtual logs for span start, events (as logs), and span end if not already present
+ * - Builds the hierarchical tree structure
+ * 
  * @param {TraceSpan[]} spans
- * @param {LogRow[]=} logRows - Optional array of log rows to merge into span nodes
+ * @param {LogRow[]=} logRows - Optional array of log rows to merge into span nodes.
+ *   Should include regular logs + virtual logs (span start, events as logs, span end).
+ *   If virtual logs are missing, they will be created automatically during build.
  * @returns {TraceModel}
  */
 export function buildTraceModel(spans, logRows = null) {
@@ -229,7 +238,80 @@ export function buildTraceModel(spans, logRows = null) {
   const groups = new Map();
   const components = new Map();
 
+  /**
+   * Creates virtual log entries for a span (span start, events as logs, span end).
+   * These virtual logs represent span lifecycle and events in log format.
+   * @param {TraceSpan} span
+   * @returns {LogRow[]}
+   */
+  const createVirtualSpanLogs = (span) => {
+    const virtualLogs = [];
+
+    // Convert the span start to a log row format
+    const spanStartLog = {
+      id: `span-start-${span.spanId}`,
+      template: `Span start : ${span.name}`,
+      timeUnixNano: span.startTimeUnixNano,
+      severityNumber: undefined,
+      severityText: "span",
+      body: undefined,
+      attributes: span.attributes || [],
+      droppedAttributesCount: undefined,
+      flags: undefined,
+      traceId: span.traceId,
+      spanId: span.spanId,
+      observedTimeUnixNano: undefined,
+    };
+    virtualLogs.push(spanStartLog);
+
+    // Convert span events to log row format
+    const eventLogs = (span.events || []).map((event, index) => {
+      return {
+        id: `event-${span.spanId}-${index}`,
+        template: event.name,
+        timeUnixNano: event.timeUnixNano,
+        severityNumber: undefined,
+        severityText: "event",
+        body: undefined,
+        attributes: event.attributes || [],
+        droppedAttributesCount: undefined,
+        flags: undefined,
+        traceId: span.traceId,
+        spanId: span.spanId,
+        observedTimeUnixNano: undefined,
+      };
+    });
+    virtualLogs.push(...eventLogs);
+
+    // Convert the span end to a log row format (if span has status)
+    if (span.status?.code && span.status.code !== "STATUS_CODE_UNSET") {
+      const statusText = span.status.message
+        ? `${span.status.code.replace("STATUS_CODE_", "")}: ${span.status.message}`
+        : span.status.code.replace("STATUS_CODE_", "");
+      // Use "error" severity for spans with error status, otherwise "span"
+      const severityText = span.status.code === "STATUS_CODE_ERROR" ? "error" : "span";
+      const spanEndLog = {
+        id: `span-end-${span.spanId}`,
+        template: `Span ended : ${span.name}, status: ${statusText}`,
+        timeUnixNano: span.endTimeUnixNano,
+        severityNumber: undefined,
+        severityText: severityText,
+        body: undefined,
+        attributes: [],
+        droppedAttributesCount: undefined,
+        flags: undefined,
+        traceId: span.traceId,
+        spanId: span.spanId,
+        observedTimeUnixNano: undefined,
+      };
+      virtualLogs.push(spanEndLog);
+    }
+
+    return virtualLogs;
+  };
+
   // Build a map of spanId -> log rows for efficient lookup
+  // This includes regular logs AND virtual logs (span start, events as logs, span end)
   const logsBySpanId = new Map();
   if (Array.isArray(logRows)) {
     logRows.forEach((logRow) => {
@@ -241,6 +323,25 @@ export function buildTraceModel(spans, logRows = null) {
       }
     });
   }
+
+  // Ensure virtual logs (span start, events, span end) are included for each span
+  // These may already be in logRows from appendLogsFromSpans(), but we ensure they're present
+  spans.forEach((span) => {
+    const spanId = span.spanId;
+    if (!logsBySpanId.has(spanId)) {
+      logsBySpanId.set(spanId, []);
+    }
+    const existingLogs = logsBySpanId.get(spanId);
+
+    // Check if virtual logs are already present by looking for span-start log
+    const hasSpanStart = existingLogs.some(log => log.id === `span-start-${spanId}`);
+
+    if (!hasSpanStart) {
+      // Create virtual logs for this span if they're not already present
+      const virtualLogs = createVirtualSpanLogs(span);
+      existingLogs.push(...virtualLogs);
+    }
+  });
 
   spans.forEach((span) => {
     const start = toNumberTimestamp(span.startTimeUnixNano);
@@ -285,13 +386,17 @@ export function buildTraceModel(spans, logRows = null) {
       });
     }
 
-    // Look up logs for this span (same as trace component does)
+    // Look up logs for this span (includes regular logs + virtual logs: span start, events as logs, span end)
+    // This is the same lookup that the trace component used to do during rendering
     const spanLogs = logsBySpanId.get(span.spanId) || [];
 
-    // Get events from span (span.events is already available)
+    // Get events from span (original events - also available as logs in spanLogs)
+    // We store both:
+    // - node.logs: all log entries (regular + virtual span start/end + events as logs)
+    // - node.events: original events from span.events (for direct event access)
     const spanEvents = span.events || [];
 
-    // Store description, logs, and events in node
+    // Store description, logs (including virtual logs), and events in node
     spanNodes.set(span.spanId, {
       span,
       depth: 0,
@@ -1480,11 +1585,15 @@ export function initTraceViewer(host, spans) {
     return { render: () => { }, update: () => { } };
   }
 
-  // Get log rows (already merged during metamodel build, so we can access them directly)
-  // This performs the same lookup that the trace component used to do during rendering
+  // Get log rows which should already include:
+  // - Regular logs (from generateLogsForSpan)
+  // - Virtual logs: span start, events as logs, span end (from appendLogsFromSpans/createVirtualSpanLogs)
+  // buildTraceModel will merge these into span nodes and ensure virtual logs are present
   const logRows = getSampleLogRows();
 
   // Build trace model with logs and events merged into span nodes during build
+  // This performs the same lookup that the trace component used to do during rendering,
+  // but now it happens once during build instead of repeatedly during render
   const trace = buildTraceModel(spans, logRows);
   let viewState = renderTrace(host, trace);
   let previewComponent = viewState.preview; // Store preview reference
