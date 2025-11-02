@@ -1479,11 +1479,11 @@ export function initTraceViewer(host, spans) {
     console.log("[initTraceViewer] No host, returning empty functions");
     return { render: () => { }, update: () => { } };
   }
-  
+
   // Get log rows (already merged during metamodel build, so we can access them directly)
   // This performs the same lookup that the trace component used to do during rendering
   const logRows = getSampleLogRows();
-  
+
   // Build trace model with logs and events merged into span nodes during build
   const trace = buildTraceModel(spans, logRows);
   let viewState = renderTrace(host, trace);
