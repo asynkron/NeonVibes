@@ -6,6 +6,7 @@
   <title>Gravibe Neon Chart Kit</title>
   <link rel="stylesheet" href="gravibe.css" />
   <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js" defer></script>
   <script src="gravibe.js" type="module" defer></script>
 </head>
 <body>
@@ -446,6 +447,14 @@
       <p>Inspect structured log entries with inline attribute highlighting and expandable context.</p>
     </header>
     <div class="log-console" data-component="logConsole"></div>
+  </section>
+
+  <section class="sequence-diagram-section">
+    <header class="sequence-diagram-header">
+      <h2>Sequence Diagram</h2>
+      <p>Visualize trace spans as a sequence diagram showing component interactions over time.</p>
+    </header>
+    <div class="sequence-diagram" data-component="sequenceDiagram"></div>
   </section>
 </body>
 </html>

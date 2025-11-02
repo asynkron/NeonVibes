@@ -1382,6 +1382,14 @@ async function initGravibe() {
     console.log("[gravibe.js initGravibe] Component has update method:", typeof rerenderTrace?.update === "function");
     componentRegistry.add(rerenderTrace);
   }
+
+  const sequenceDiagramHost = document.querySelector('[data-component="sequenceDiagram"]');
+  if (sequenceDiagramHost) {
+    const { initSequenceDiagram } = await import("./ui/sequenceDiagram.js");
+    const rerenderSequence = initSequenceDiagram(sequenceDiagramHost, sampleTraceSpans);
+    console.log("[gravibe.js initGravibe] Sequence diagram initialized, component:", rerenderSequence);
+    componentRegistry.add(rerenderSequence);
+  }
 }
 
 if (document.readyState === "loading") {
