@@ -5,6 +5,8 @@
  */
 
 import { createComponentKey, ComponentKind } from "./metaModel.js";
+import { getPaletteColors } from "../core/palette.js";
+import { normalizeColorBrightness, hexToRgb } from "../core/colors.js";
 
 /**
  * @typedef {import("./trace.js").TraceModel} TraceModel
@@ -25,7 +27,7 @@ import { createComponentKey, ComponentKind } from "./metaModel.js";
 const DEFAULT_CONFIG = {
   showAttributes: true,
   showLogs: true,
-  showAsync: false,
+  showAsync: true,
   showRecursion: true,
   theme: "dark",
 };
@@ -202,6 +204,74 @@ function getComponentDeclaration(component) {
       // Syntax: participant id as "pretty name"
       return `participant ${id} as "${name}"`;
   }
+}
+
+/**
+ * Applies colors directly to participant header rectangles in the rendered SVG
+ * @param {HTMLElement} host - Container element with the rendered Mermaid diagram
+ * @param {TraceModel} trace - Trace model with components and serviceNameMapping
+ */
+function applyParticipantColors(host, trace) {
+  if (!trace || !trace.components || !trace.serviceNameMapping) {
+    console.warn("[applyParticipantColors] Missing trace data");
+    return;
+  }
+
+  console.log("[applyParticipantColors] Applying colors to participant headers");
+
+  const mermaidSvg = host.querySelector("svg");
+  if (!mermaidSvg) {
+    console.warn("[applyParticipantColors] Mermaid SVG not found");
+    return;
+  }
+
+  // Get palette colors (same as trace viewer)
+  const paletteColors = getPaletteColors();
+  if (paletteColors.length === 0) {
+    console.warn("[applyParticipantColors] No palette colors available");
+    return;
+  }
+  const paletteLength = paletteColors.length;
+
+  // Helper to compute service color (same logic as trace viewer)
+  const computeServiceColor = (serviceName) => {
+    const serviceIndex = trace.serviceNameMapping?.get(serviceName) ?? 0;
+    const colorIndex = serviceIndex % paletteLength;
+    const paletteColor = paletteColors[colorIndex];
+    if (!paletteColor) {
+      return "#61afef"; // Fallback
+    }
+    return normalizeColorBrightness(paletteColor, 50, 0.7);
+  };
+
+  // Find all participant header rectangles by their name attribute
+  // Example: <rect class="actor actor-top" name="edge_gateway_Internal" ...>
+  trace.components.forEach((component) => {
+    if (component.serviceName) {
+      const escapedId = escapeMermaidId(component.id);
+      const color = computeServiceColor(component.serviceName);
+      const rgb = hexToRgb(color);
+      
+      if (rgb) {
+        // Find all rects with this name attribute (typically actor-top and actor-bottom)
+        const rects = mermaidSvg.querySelectorAll(`rect[name="${escapedId}"]`);
+        
+        if (rects.length > 0) {
+          rects.forEach((rect) => {
+            // Use style property instead of setAttribute to override CSS
+            // Use solid colors (alpha 1.0) so swimlane lines don't show through
+            rect.style.fill = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 1.0)`;
+            rect.style.stroke = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 1.0)`;
+            rect.style.strokeWidth = "2px";
+          });
+          
+          console.log(`[applyParticipantColors] Applied color to ${rects.length} rect(s) with name="${escapedId}" (${component.serviceName}): rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 1.0)`);
+        } else {
+          console.warn(`[applyParticipantColors] No rects found with name="${escapedId}"`);
+        }
+      }
+    }
+  });
 }
 
 /**
@@ -720,6 +790,11 @@ export function initSequenceDiagram(host, spans, config = {}) {
         mermaid.initialize({ 
           startOnLoad: true,
           theme: config.theme || "dark",
+          themeVariables: {
+            // Set actor fill to transparent so we can control it
+            actorBkg: 'transparent',
+            actorBorder: '#81B1DB',
+          },
           sequence: {
             diagramMarginX: 50,
             diagramMarginY: 10,
@@ -733,7 +808,14 @@ export function initSequenceDiagram(host, spans, config = {}) {
           }
         });
         console.log("[initSequenceDiagram] Calling mermaid.contentLoaded()");
+        
+        // Render the Mermaid diagram
         mermaid.contentLoaded();
+        
+        // Apply colors to participant headers after rendering
+        setTimeout(() => {
+          applyParticipantColors(host, trace);
+        }, 100);
       } else {
         console.warn("[initSequenceDiagram] Mermaid.js not loaded. Include mermaid.js script.");
       }
@@ -744,8 +826,14 @@ export function initSequenceDiagram(host, spans, config = {}) {
   };
 
   const update = () => {
-    // Re-render if needed (e.g., when palette changes)
-    render();
+    // Re-apply colors when palette changes (faster than full re-render)
+    if (trace) {
+      console.log("[initSequenceDiagram] Updating participant colors");
+      applyParticipantColors(host, trace);
+    } else {
+      // If trace not built yet, do full render
+      render();
+    }
   };
 
   // Initial render

@@ -82,7 +82,7 @@ export async function ensureSampleLogRowsLoaded() {
  * @typedef {ReturnType<typeof createTraceEvent>} TraceEvent
  * @typedef {import("./logs.js").LogRow} LogRow
  * @typedef {{ id: string, name: string }} Group
- * @typedef {{ id: string, name: string, groupId: string, kind: string, componentStack: string }} Component
+ * @typedef {{ id: string, name: string, groupId: string, kind: string, componentStack: string, serviceName?: string }} Component
  * @typedef {{ groupName: string, componentName: string, operation: string, componentKind: string, componentStack: string, isClient?: boolean }} SpanDescription
  * @typedef {{ traceId: string, startTimeUnixNano: number, endTimeUnixNano: number, durationNano: number, spanCount: number, roots: TraceSpanNode[], serviceNameMapping: Map<string, number>, groups: Map<string, Group>, components: Map<string, Component> }} TraceModel
  * @typedef {{ span: TraceSpan, depth: number, children: TraceSpanNode[], description?: SpanDescription, logs?: LogRow[], events?: TraceEvent[] }} TraceSpanNode
@@ -383,6 +383,7 @@ export function buildTraceModel(spans, logRows = null) {
         groupId: groupId,
         kind: description.componentKind,
         componentStack: description.componentStack || "",
+        serviceName: serviceName, // Store service name for coloring participant headers
       });
     }
 
