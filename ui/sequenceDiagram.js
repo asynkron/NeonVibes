@@ -314,7 +314,9 @@ function renderAttributes(lines, node, trace, config) {
   }
 
   if (attributes.length > 0) {
-    const noteText = `**Attributes**\\n${attributes.join("\\n")}`;
+    // Use actual newlines (\n) which escapeMermaid will convert to <br/>
+    // Mermaid doesn't support **bold** markdown, so use uppercase for emphasis
+    const noteText = `ATTRIBUTES\n${attributes.join("\n")}`;
     const escapedNote = escapeMermaid(noteText);
     lines.push(`    Note over ${componentId}: ${escapedNote}`);
     console.log(`[renderAttributes] Added note over ${componentId}`);
@@ -323,14 +325,16 @@ function renderAttributes(lines, node, trace, config) {
   // Special handling for HTTP URL
   const httpUrl = getSpanAttribute(node.span, "http.url");
   if (httpUrl) {
-    const escapedUrl = escapeMermaid(`**URL**\\n${httpUrl}`);
+    // Use actual newline (\n) which escapeMermaid will convert to <br/>
+    const escapedUrl = escapeMermaid(`URL\n${httpUrl}`);
     lines.push(`    Note over ${componentId}: ${escapedUrl}`);
   }
 
   // Special handling for SQL statements
   const sql = getSpanAttribute(node.span, "db.statement");
   if (sql) {
-    const escapedSql = escapeMermaid(`**Statement**\\n${sql}`);
+    // Use actual newline (\n) which escapeMermaid will convert to <br/>
+    const escapedSql = escapeMermaid(`STATEMENT\n${sql}`);
     lines.push(`    Note over ${componentId}: ${escapedSql}`);
   }
 }
@@ -378,7 +382,9 @@ function renderLogs(lines, node, startTime, endTime, trace, config) {
   const logsText = logTexts.join("\n").substring(0, 600);
   if (logsText) {
     const componentId = escapeMermaidId(getComponentId(node, trace));
-    const escapedLogs = escapeMermaid(`**Logs**\\n${logsText}`);
+    // Use actual newline (\n) which escapeMermaid will convert to <br/>
+    // Mermaid doesn't support **bold** markdown, so use uppercase for emphasis
+    const escapedLogs = escapeMermaid(`LOGS\n${logsText}`);
     lines.push(`    Note over ${componentId}: ${escapedLogs}`);
     console.log(`[renderLogs] Added logs note over ${componentId}`);
   }
@@ -426,7 +432,9 @@ function renderErrorLogs(lines, node, startTime, endTime, trace, config) {
   const errorsText = errorTexts.join("\n").substring(0, 600);
   if (errorsText) {
     const componentId = escapeMermaidId(getComponentId(node, trace));
-    const escapedErrors = escapeMermaid(`**Errors**\\n${errorsText}`);
+    // Use actual newline (\n) which escapeMermaid will convert to <br/>
+    // Mermaid doesn't support **bold** markdown, so use uppercase for emphasis
+    const escapedErrors = escapeMermaid(`ERRORS\n${errorsText}`);
     lines.push(
       `    Note over ${componentId}: ${escapedErrors}`
     );
@@ -522,6 +530,7 @@ function toNumberTimestamp(value) {
 
 /**
  * Escapes special characters for Mermaid syntax (for labels and text)
+ * Mermaid sequence diagrams support <br/> for line breaks but NOT HTML tags like <b> for bold
  * @param {string} text
  * @returns {string}
  */
@@ -531,12 +540,14 @@ function escapeMermaid(text) {
   }
   return String(text)
     .replace(/"/g, '&quot;')
-    .replace(/\n/g, "<br/>")
+    .replace(/\n/g, "<br/>")  // Convert newlines to <br/> tags (Mermaid supports this)
     .replace(/\[/g, "&#91;")
     .replace(/\]/g, "&#93;")
     .replace(/\{/g, "&#123;")
     .replace(/\}/g, "&#125;")
     .replace(/=/g, "&#61;");
+  // Note: Mermaid does NOT support <b>bold</b> or other HTML formatting tags in sequence diagrams
+  // Markdown **bold** also doesn't work - use uppercase text for emphasis instead
 }
 
 /**
