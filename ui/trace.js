@@ -1067,11 +1067,12 @@ function collectDescendantTimeRanges(node, result = []) {
 
 /**
  * Calculates visible segments of a span (excluding child span time ranges).
- * Returns segments as percentages relative to the span bar's width (0-100%).
+ * Returns segments as percentages relative to the visible span bar's width (0-100%).
+ * Accounts for time window filtering.
  * @param {TraceSpanNode} node - The span node
  * @param {TraceModel} trace - The trace model
  * @param {Object} timeWindow - Time window { start: 0-100, end: 0-100 }
- * @returns {Array<{startPercent: number, widthPercent: number}>} Array of visible segments (relative to span bar)
+ * @returns {Array<{startPercent: number, widthPercent: number}>} Array of visible segments (relative to visible span bar)
  */
 function calculateVisibleSegments(node, trace, timeWindow) {
   const spanStart = toNumberTimestamp(node.span.startTimeUnixNano);
@@ -1082,10 +1083,31 @@ function calculateVisibleSegments(node, trace, timeWindow) {
     return [];
   }
 
+  // Calculate the visible portion of the span within the time window
+  const totalDuration = trace.durationNano || Math.max(
+    toNumberTimestamp(trace.endTimeUnixNano) - toNumberTimestamp(trace.startTimeUnixNano),
+    1
+  );
+  const windowStart = timeWindow.start || 0;
+  const windowEnd = timeWindow.end || 100;
+  const traceStart = toNumberTimestamp(trace.startTimeUnixNano);
+  const windowStartTime = traceStart + (totalDuration * windowStart / 100);
+  const windowEndTime = traceStart + (totalDuration * windowEnd / 100);
+
+  // Calculate visible span boundaries (clamped to time window)
+  const visibleSpanStart = Math.max(spanStart, windowStartTime);
+  const visibleSpanEnd = Math.min(spanEnd, windowEndTime);
+  const visibleSpanDuration = visibleSpanEnd - visibleSpanStart;
+
+  // If span is not visible in the time window, return empty segments
+  if (visibleSpanDuration <= 0) {
+    return [];
+  }
+
   // Collect all descendant span time ranges
   const childRanges = collectDescendantTimeRanges(node);
   
-  // If no children, the entire span is one segment (0-100% of span width)
+  // If no children, the entire visible span is one segment (0-100% of visible span width)
   if (childRanges.length === 0) {
     return [{
       startPercent: 0,
@@ -1093,27 +1115,39 @@ function calculateVisibleSegments(node, trace, timeWindow) {
     }];
   }
 
+  // Filter child ranges to only those that overlap with the visible span
+  const visibleChildRanges = childRanges
+    .map(range => ({
+      start: Math.max(range.start, visibleSpanStart),
+      end: Math.min(range.end, visibleSpanEnd),
+    }))
+    .filter(range => range.end > range.start);
+
+  if (visibleChildRanges.length === 0) {
+    // No visible children, entire visible span is one segment
+    return [{
+      startPercent: 0,
+      widthPercent: 100,
+    }];
+  }
+
   // Sort child ranges by start time
-  childRanges.sort((a, b) => a.start - b.start);
+  visibleChildRanges.sort((a, b) => a.start - b.start);
 
-  // Calculate visible segments by subtracting child ranges from parent span
-  // Segments are relative to the span bar (0-100% of span width)
+  // Calculate visible segments by subtracting child ranges from visible span
+  // Segments are relative to the visible span bar (0-100% of visible span width)
   const segments = [];
-  let currentStart = spanStart;
+  let currentStart = visibleSpanStart;
 
-  childRanges.forEach((childRange) => {
-    // Clamp child range to parent span boundaries
-    const childStart = Math.max(childRange.start, spanStart);
-    const childEnd = Math.min(childRange.end, spanEnd);
-
+  visibleChildRanges.forEach((childRange) => {
     // If child starts after current position, there's a visible segment before it
-    if (childStart > currentStart) {
+    if (childRange.start > currentStart) {
       const segmentStart = currentStart;
-      const segmentEnd = childStart;
+      const segmentEnd = childRange.start;
       if (segmentEnd > segmentStart) {
-        // Calculate percentage relative to span bar width
-        const segmentStartPercent = ((segmentStart - spanStart) / spanDuration) * 100;
-        const segmentEndPercent = ((segmentEnd - spanStart) / spanDuration) * 100;
+        // Calculate percentage relative to visible span bar width
+        const segmentStartPercent = ((segmentStart - visibleSpanStart) / visibleSpanDuration) * 100;
+        const segmentEndPercent = ((segmentEnd - visibleSpanStart) / visibleSpanDuration) * 100;
         const segmentWidthPercent = segmentEndPercent - segmentStartPercent;
 
         segments.push({
@@ -1123,15 +1157,15 @@ function calculateVisibleSegments(node, trace, timeWindow) {
       }
     }
     // Update current position to after this child range
-    currentStart = Math.max(currentStart, childEnd);
+    currentStart = Math.max(currentStart, childRange.end);
   });
 
   // Add final segment if there's remaining time after all children
-  if (currentStart < spanEnd) {
+  if (currentStart < visibleSpanEnd) {
     const segmentStart = currentStart;
-    const segmentEnd = spanEnd;
-    const segmentStartPercent = ((segmentStart - spanStart) / spanDuration) * 100;
-    const segmentEndPercent = ((segmentEnd - spanStart) / spanDuration) * 100;
+    const segmentEnd = visibleSpanEnd;
+    const segmentStartPercent = ((segmentStart - visibleSpanStart) / visibleSpanDuration) * 100;
+    const segmentEndPercent = ((segmentEnd - visibleSpanStart) / visibleSpanDuration) * 100;
     const segmentWidthPercent = segmentEndPercent - segmentStartPercent;
 
     segments.push({
