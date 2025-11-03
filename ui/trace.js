@@ -1375,6 +1375,115 @@ function createTraceViewState(trace) {
   return state;
 }
 
+/**
+ * Creates a live cursor marker that follows the cursor position.
+ * @param {TraceModel} trace - The trace model
+ * @param {Object} timeWindow - Time window { start: 0-100, end: 0-100 }
+ * @param {HTMLElement} listContainer - The trace-span-list container
+ * @returns {Object} Object with marker element and update function
+ */
+function createLiveCursorMarker(trace, timeWindow, listContainer) {
+  const marker = document.createElement("div");
+  marker.className = "trace-timeline-marker trace-timeline-marker--cursor";
+  marker.style.display = "none"; // Hidden by default, shown on hover
+
+  // Add top label
+  const topLabel = document.createElement("div");
+  topLabel.className = "trace-timeline-marker__label trace-timeline-marker__label--top";
+  topLabel.textContent = "";
+  marker.append(topLabel);
+
+  // Add bottom label
+  const bottomLabel = document.createElement("div");
+  bottomLabel.className = "trace-timeline-marker__label trace-timeline-marker__label--bottom";
+  bottomLabel.textContent = "";
+  marker.append(bottomLabel);
+
+  const updatePosition = (positionPercent, timestamp) => {
+    marker.style.left = `${positionPercent}%`;
+    const timestampText = formatDurationMs(timestamp);
+    topLabel.textContent = timestampText;
+    bottomLabel.textContent = timestampText;
+  };
+
+  return {
+    marker,
+    updatePosition,
+  };
+}
+
+/**
+ * Sets up cursor tracking to update the live cursor marker.
+ * @param {HTMLElement} listContainer - The trace-span-list container
+ * @param {Object} liveCursorMarker - Object with marker element and updatePosition function
+ * @param {TraceModel} trace - The trace model
+ * @param {Object} viewState - View state containing timeWindowStart and timeWindowEnd
+ */
+function setupCursorTracking(listContainer, liveCursorMarker, trace, viewState) {
+  let isHovering = false;
+
+  // Get the timeline markers container to calculate the timeline area bounds
+  const timelineMarkersContainer = listContainer.querySelector(".trace-timeline-markers");
+  if (!timelineMarkersContainer) {
+    return;
+  }
+
+  const handleMouseMove = (e) => {
+    if (!isHovering) {
+      return;
+    }
+
+    const markersRect = timelineMarkersContainer.getBoundingClientRect();
+
+    // Check if cursor is over the timeline area (not the service column)
+    const mouseX = e.clientX;
+    if (mouseX < markersRect.left || mouseX > markersRect.right) {
+      liveCursorMarker.marker.style.display = "none";
+      return;
+    }
+
+    // Calculate position relative to timeline markers container
+    const relativeX = mouseX - markersRect.left;
+    const markersWidth = markersRect.width;
+    const positionPercent = (relativeX / markersWidth) * 100;
+
+    // Calculate timestamp from position
+    const totalDuration = trace.durationNano || Math.max(
+      toNumberTimestamp(trace.endTimeUnixNano) - toNumberTimestamp(trace.startTimeUnixNano),
+      1
+    );
+
+    // Read time window from viewState dynamically
+    const windowStart = viewState?.timeWindowStart ?? 0;
+    const windowEnd = viewState?.timeWindowEnd ?? 100;
+    const windowWidth = windowEnd - windowStart;
+
+    // Convert position within timeline area (0-100%) to absolute position in trace (0-100%)
+    const absolutePosition = windowStart + (positionPercent * windowWidth) / 100;
+
+    // Calculate absolute time delta from trace start
+    const absoluteTimeDelta = (totalDuration * absolutePosition) / 100;
+
+    // Update marker position and label
+    liveCursorMarker.updatePosition(positionPercent, absoluteTimeDelta);
+    liveCursorMarker.marker.style.display = "block";
+  };
+
+  const handleMouseEnter = () => {
+    isHovering = true;
+  };
+
+  const handleMouseLeave = () => {
+    isHovering = false;
+    liveCursorMarker.marker.style.display = "none";
+  };
+
+  // Listen for mouse events on the list container
+  listContainer.addEventListener("mousemove", handleMouseMove);
+  listContainer.addEventListener("mouseenter", handleMouseEnter);
+  listContainer.addEventListener("mouseleave", handleMouseLeave);
+}
+
 
 export function renderTrace(host, trace, state) {
   const viewState = state ?? createTraceViewState(trace);
@@ -1444,6 +1553,14 @@ export function renderTrace(host, trace, state) {
   // Splitter is positioned relative to trace-span-list, not the full trace-viewer
   const splitter = createSplitter(list);
   list.append(splitter);
+
+  // Create live cursor swimlane that follows the cursor
+  const liveCursorMarker = createLiveCursorMarker(trace, timeWindow, list);
+  timelineMarkers.append(liveCursorMarker.marker);
+
+  // Track mouse movement over the timeline area
+  // Pass viewState so cursor tracking can access updated time window
+  setupCursorTracking(list, liveCursorMarker, trace, viewState);
 
   return viewState;
 }

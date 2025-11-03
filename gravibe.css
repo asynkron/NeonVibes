@@ -698,6 +698,11 @@ body {
   transform: translateX(-50%);
 }
 
+.trace-timeline-marker--cursor {
+  background: rgba(148, 163, 184, 0.5);
+  z-index: 2;
+}
+
 .trace-timeline-marker__label {
   position: absolute;
   left: 50%;
