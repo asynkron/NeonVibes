@@ -774,6 +774,21 @@ body {
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1);
 }
 
+.trace-span__gray-line-segments {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.trace-span__gray-line-segment {
+  position: absolute;
+  top: 50%;
+  height: 1px;
+  background: rgba(148, 163, 184, 0.6);
+  transform: translateY(-50%);
+}
+
 .trace-span__markers {
   position: absolute;
   inset: 0;

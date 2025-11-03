@@ -1047,6 +1047,129 @@ function renderSpanDetails(node) {
   return details;
 }
 
+/**
+ * Collects all descendant spans recursively from a node.
+ * @param {TraceSpanNode} node - The span node
+ * @param {Array<{start: number, end: number}>} result - Array to collect results
+ * @returns {Array<{start: number, end: number}>} Array of {start, end} time ranges in nanoseconds
+ */
+function collectDescendantTimeRanges(node, result = []) {
+  // Add direct children
+  node.children.forEach((child) => {
+    const start = toNumberTimestamp(child.span.startTimeUnixNano);
+    const end = toNumberTimestamp(child.span.endTimeUnixNano);
+    result.push({ start, end });
+    // Recursively collect descendants
+    collectDescendantTimeRanges(child, result);
+  });
+  return result;
+}
+
+/**
+ * Calculates visible segments of a span (excluding child span time ranges).
+ * Returns segments as percentages relative to the span bar's width (0-100%).
+ * @param {TraceSpanNode} node - The span node
+ * @param {TraceModel} trace - The trace model
+ * @param {Object} timeWindow - Time window { start: 0-100, end: 0-100 }
+ * @returns {Array<{startPercent: number, widthPercent: number}>} Array of visible segments (relative to span bar)
+ */
+function calculateVisibleSegments(node, trace, timeWindow) {
+  const spanStart = toNumberTimestamp(node.span.startTimeUnixNano);
+  const spanEnd = toNumberTimestamp(node.span.endTimeUnixNano);
+  const spanDuration = spanEnd - spanStart;
+
+  if (spanDuration <= 0) {
+    return [];
+  }
+
+  // Collect all descendant span time ranges
+  const childRanges = collectDescendantTimeRanges(node);
+  
+  // If no children, the entire span is one segment (0-100% of span width)
+  if (childRanges.length === 0) {
+    return [{
+      startPercent: 0,
+      widthPercent: 100,
+    }];
+  }
+
+  // Sort child ranges by start time
+  childRanges.sort((a, b) => a.start - b.start);
+
+  // Calculate visible segments by subtracting child ranges from parent span
+  // Segments are relative to the span bar (0-100% of span width)
+  const segments = [];
+  let currentStart = spanStart;
+
+  childRanges.forEach((childRange) => {
+    // Clamp child range to parent span boundaries
+    const childStart = Math.max(childRange.start, spanStart);
+    const childEnd = Math.min(childRange.end, spanEnd);
+
+    // If child starts after current position, there's a visible segment before it
+    if (childStart > currentStart) {
+      const segmentStart = currentStart;
+      const segmentEnd = childStart;
+      if (segmentEnd > segmentStart) {
+        // Calculate percentage relative to span bar width
+        const segmentStartPercent = ((segmentStart - spanStart) / spanDuration) * 100;
+        const segmentEndPercent = ((segmentEnd - spanStart) / spanDuration) * 100;
+        const segmentWidthPercent = segmentEndPercent - segmentStartPercent;
+
+        segments.push({
+          startPercent: segmentStartPercent,
+          widthPercent: segmentWidthPercent,
+        });
+      }
+    }
+    // Update current position to after this child range
+    currentStart = Math.max(currentStart, childEnd);
+  });
+
+  // Add final segment if there's remaining time after all children
+  if (currentStart < spanEnd) {
+    const segmentStart = currentStart;
+    const segmentEnd = spanEnd;
+    const segmentStartPercent = ((segmentStart - spanStart) / spanDuration) * 100;
+    const segmentEndPercent = ((segmentEnd - spanStart) / spanDuration) * 100;
+    const segmentWidthPercent = segmentEndPercent - segmentStartPercent;
+
+    segments.push({
+      startPercent: segmentStartPercent,
+      widthPercent: segmentWidthPercent,
+    });
+  }
+
+  return segments;
+}
+
+/**
+ * Renders gray line segments in the center of a span bar, interrupted by child spans.
+ * @param {TraceSpanNode} node - The span node
+ * @param {TraceModel} trace - The trace model
+ * @param {Object} timeWindow - Time window { start: 0-100, end: 0-100 }
+ * @returns {HTMLElement|null} Container with gray line segments, or null if no segments
+ */
+function renderGrayLineSegments(node, trace, timeWindow) {
+  const segments = calculateVisibleSegments(node, trace, timeWindow);
+  if (segments.length === 0) {
+    return null;
+  }
+
+  const container = document.createElement("div");
+  container.className = "trace-span__gray-line-segments";
+
+  segments.forEach((segment) => {
+    const line = document.createElement("div");
+    line.className = "trace-span__gray-line-segment";
+    line.style.left = `${segment.startPercent}%`;
+    line.style.width = `${segment.widthPercent}%`;
+    container.append(line);
+  });
+
+  return container;
+}
+
 function renderSpanSummary(trace, node, timeWindow = { start: 0, end: 100 }) {
   const summary = document.createElement("div");
   summary.className = "trace-span__summary";
@@ -1159,6 +1282,12 @@ function renderSpanSummary(trace, node, timeWindow = { start: 0, end: 100 }) {
   const markers = renderSpanMarkers(node, trace, timeWindow);
   if (markers) {
     bar.append(markers);
+  }
+
+  // Add gray line segments that show parent span duration, interrupted by child spans
+  const grayLineSegments = renderGrayLineSegments(node, trace, timeWindow);
+  if (grayLineSegments) {
+    bar.append(grayLineSegments);
   }
 
   timeline.append(bar);
