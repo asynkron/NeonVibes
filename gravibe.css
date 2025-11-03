@@ -785,8 +785,9 @@ body {
   position: absolute;
   top: calc(50% + 10px);
   height: 4px;
-  background: rgba(255, 255, 255, 0.6);
+  background: rgba(200, 255, 255, 0.4);
   transform: translateY(-50%);
+  border-radius: 10px;
 }
 
 .trace-span__markers {
