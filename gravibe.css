@@ -783,9 +783,9 @@ body {
 
 .trace-span__gray-line-segment {
   position: absolute;
-  top: 50%;
-  height: 1px;
-  background: rgba(148, 163, 184, 0.6);
+  top: calc(50% + 10px);
+  height: 4px;
+  background: rgba(255, 255, 255, 0.6);
   transform: translateY(-50%);
 }
 
