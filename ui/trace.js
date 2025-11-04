@@ -1453,7 +1453,7 @@ function renderSpanSummary(trace, node, timeWindow = { start: 0, end: 100 }, exp
   const serviceName = node.span.resource?.serviceName || "unknown-service";
   const namespace = node.span.resource?.serviceNamespace;
   const scope = node.span.instrumentationScope?.name;
-  
+
   // Get component name from description if available
   const componentName = node.description?.componentName;
 
