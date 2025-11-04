@@ -253,10 +253,21 @@ function getComponentDeclaration(component) {
 }
 
 /**
- * Applies colors directly to participant header rectangles in the rendered SVG
- * @param {HTMLElement} host - Container element with the rendered Mermaid diagram
- * @param {TraceModel} trace - Trace model with components and serviceNameMapping
+ * Mixes two RGB colors by blending them together
+ * @param {{r: number, g: number, b: number}} color1 - First RGB color
+ * @param {{r: number, g: number, b: number}} color2 - Second RGB color
+ * @param {number} ratio - Blend ratio (0-1), where 0 = all color1, 1 = all color2, 0.5 = 50/50 blend
+ * @returns {{r: number, g: number, b: number}} Mixed RGB color
  */
+function mixColors(color1, color2, ratio = 0.5) {
+  const invRatio = 1 - ratio;
+  return {
+    r: Math.round(color1.r * invRatio + color2.r * ratio),
+    g: Math.round(color1.g * invRatio + color2.g * ratio),
+    b: Math.round(color1.b * invRatio + color2.b * ratio),
+  };
+}
+
 function applyParticipantColors(host, trace) {
   if (!trace || !trace.components || !trace.serviceNameMapping) {
     console.warn("[applyParticipantColors] Missing trace data");
@@ -268,6 +279,20 @@ function applyParticipantColors(host, trace) {
   const mermaidSvg = host.querySelector("svg");
   if (!mermaidSvg) {
     console.warn("[applyParticipantColors] Mermaid SVG not found");
+    return;
+  }
+
+  // Get CSS variable for surface-1 (background color)
+  const rootStyles = getComputedStyle(document.documentElement);
+  const surface1Value = rootStyles.getPropertyValue('--surface-1').trim() || '#1e2129';
+  let surface1Rgb = hexToRgb(surface1Value);
+  if (!surface1Rgb) {
+    // Fallback to default dark background if parsing fails
+    surface1Rgb = hexToRgb('#1e2129');
+    console.warn("[applyParticipantColors] Could not parse --surface-1, using fallback");
+  }
+  if (!surface1Rgb) {
+    console.error("[applyParticipantColors] Could not parse fallback color, skipping color application");
     return;
   }
 
@@ -296,22 +321,25 @@ function applyParticipantColors(host, trace) {
     if (component.serviceName) {
       const escapedId = escapeMermaidId(component.id);
       const color = computeServiceColor(component.serviceName);
-      const rgb = hexToRgb(color);
+      const serviceRgb = hexToRgb(color);
 
-      if (rgb) {
+      if (serviceRgb && surface1Rgb) {
+        // Mix service color with surface-1 (75% surface-1, 25% service color)
+        const mixedRgb = mixColors(serviceRgb, surface1Rgb, 0.75);
+
         // Find all rects with this name attribute (typically actor-top and actor-bottom)
         const rects = mermaidSvg.querySelectorAll(`rect[name="${escapedId}"]`);
 
         if (rects.length > 0) {
           rects.forEach((rect) => {
             // Use style property instead of setAttribute to override CSS
-            // Use solid colors (alpha 1.0) so swimlane lines don't show through
-            rect.style.fill = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 1.0)`;
-            rect.style.stroke = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 1.0)`;
+            // Use mixed color with surface-1 (alpha 1.0) so swimlane lines don't show through
+            rect.style.fill = `rgba(${mixedRgb.r}, ${mixedRgb.g}, ${mixedRgb.b}, 1.0)`;
+            rect.style.stroke = `rgba(${mixedRgb.r}, ${mixedRgb.g}, ${mixedRgb.b}, 1.0)`;
             rect.style.strokeWidth = "2px";
           });
 
-          console.log(`[applyParticipantColors] Applied color to ${rects.length} rect(s) with name="${escapedId}" (${component.serviceName}): rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 1.0)`);
+          console.log(`[applyParticipantColors] Applied mixed color to ${rects.length} rect(s) with name="${escapedId}" (${component.serviceName}): rgba(${mixedRgb.r}, ${mixedRgb.g}, ${mixedRgb.b}, 1.0)`);
         } else {
           console.warn(`[applyParticipantColors] No rects found with name="${escapedId}"`);
         }
