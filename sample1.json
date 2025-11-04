@@ -1,0 +1,758 @@
+{
+    "spans": [
+        {
+            "span": {
+                "traceId": "BDppn/5OmW1t9GZycUCaMA==",
+                "spanId": "nQeojkHxbBk=",
+                "traceState": "",
+                "parentSpanId": "",
+                "name": "GET /_framework/opaque-redirect",
+                "kind": "SPAN_KIND_SERVER",
+                "startTimeUnixNano": 1762239274155057000,
+                "endTimeUnixNano": 1762239274155405000,
+                "attributes": [
+                    {
+                        "key": "server.address",
+                        "value": {
+                            "stringValue": "localhost"
+                        }
+                    },
+                    {
+                        "key": "server.port",
+                        "value": {
+                            "intValue": 5276
+                        }
+                    },
+                    {
+                        "key": "url.query",
+                        "value": {
+                            "stringValue": "?url=CfDJ8Ofm-8M8YUdLstNgAih9OLktXBfCOd5e-OMcLugYXKsv2R6MiwIPtF9oXTaxkxO7z5FmTwy5BY7FZb6b3QkVm828neiKBAeqRh-fkDr86FTpi-qoOV0_KYcxpn4-P1jUuE9GDEQbcaWYK0QVPeEKGGtSr5ZZyY7HXR4xc8yx5OV5"
+                        }
+                    },
+                    {
+                        "key": "http.request.method",
+                        "value": {
+                            "stringValue": "GET"
+                        }
+                    },
+                    {
+                        "key": "url.scheme",
+                        "value": {
+                            "stringValue": "http"
+                        }
+                    },
+                    {
+                        "key": "url.path",
+                        "value": {
+                            "stringValue": "/_framework/opaque-redirect"
+                        }
+                    },
+                    {
+                        "key": "network.protocol.version",
+                        "value": {
+                            "stringValue": "1.1"
+                        }
+                    },
+                    {
+                        "key": "user_agent.original",
+                        "value": {
+                            "stringValue": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36"
+                        }
+                    },
+                    {
+                        "key": "http.route",
+                        "value": {
+                            "stringValue": "/_framework/opaque-redirect"
+                        }
+                    },
+                    {
+                        "key": "http.response.status_code",
+                        "value": {
+                            "intValue": 302
+                        }
+                    }
+                ],
+                "droppedAttributesCount": 0,
+                "events": [],
+                "droppedEventsCount": 0,
+                "links": [],
+                "droppedLinksCount": 0
+            },
+            "serviceName": "frontend"
+        }
+    ],
+    "logs": [
+        {
+            "timeUnixNano": 1762239274155159000,
+            "severityNumber": "SEVERITY_NUMBER_INFO",
+            "severityText": "Information",
+            "body": {
+                "stringValue": "Request starting HTTP/1.1 GET http://localhost:5276/_framework/opaque-redirect?url=CfDJ8Ofm-8M8YUdLstNgAih9OLktXBfCOd5e-OMcLugYXKsv2R6MiwIPtF9oXTaxkxO7z5FmTwy5BY7FZb6b3QkVm828neiKBAeqRh-fkDr86FTpi-qoOV0_KYcxpn4-P1jUuE9GDEQbcaWYK0QVPeEKGGtSr5ZZyY7HXR4xc8yx5OV5 - - -"
+            },
+            "attributes": [
+                {
+                    "key": "logrecord.event.id",
+                    "value": {
+                        "intValue": 1
+                    }
+                },
+                {
+                    "key": "Protocol",
+                    "value": {
+                        "stringValue": "HTTP/1.1"
+                    }
+                },
+                {
+                    "key": "Method",
+                    "value": {
+                        "stringValue": "GET"
+                    }
+                },
+                {
+                    "key": "Scheme",
+                    "value": {
+                        "stringValue": "http"
+                    }
+                },
+                {
+                    "key": "Host",
+                    "value": {
+                        "stringValue": "localhost:5276"
+                    }
+                },
+                {
+                    "key": "PathBase",
+                    "value": {
+                        "stringValue": ""
+                    }
+                },
+                {
+                    "key": "Path",
+                    "value": {
+                        "stringValue": "/_framework/opaque-redirect"
+                    }
+                },
+                {
+                    "key": "QueryString",
+                    "value": {
+                        "stringValue": "?url=CfDJ8Ofm-8M8YUdLstNgAih9OLktXBfCOd5e-OMcLugYXKsv2R6MiwIPtF9oXTaxkxO7z5FmTwy5BY7FZb6b3QkVm828neiKBAeqRh-fkDr86FTpi-qoOV0_KYcxpn4-P1jUuE9GDEQbcaWYK0QVPeEKGGtSr5ZZyY7HXR4xc8yx5OV5"
+                    }
+                },
+                {
+                    "key": "{OriginalFormat}",
+                    "value": {
+                        "stringValue": "Request starting {Protocol} {Method} {Scheme}://{Host}{PathBase}{Path}{QueryString} - {ContentType} {ContentLength}"
+                    }
+                },
+                {
+                    "key": "SpanId",
+                    "value": {
+                        "stringValue": "9d07a88e41f16c19"
+                    }
+                },
+                {
+                    "key": "TraceId",
+                    "value": {
+                        "stringValue": "043a699ffe4e996d6df4667271409a30"
+                    }
+                },
+                {
+                    "key": "ParentId",
+                    "value": {
+                        "stringValue": "0000000000000000"
+                    }
+                },
+                {
+                    "key": "ConnectionId",
+                    "value": {
+                        "stringValue": "0HNGRDQS1JA4E"
+                    }
+                },
+                {
+                    "key": "RequestId",
+                    "value": {
+                        "stringValue": "0HNGRDQS1JA4E:00000008"
+                    }
+                },
+                {
+                    "key": "RequestPath",
+                    "value": {
+                        "stringValue": "/_framework/opaque-redirect"
+                    }
+                }
+            ],
+            "droppedAttributesCount": 0,
+            "flags": 1,
+            "traceId": "BDppn/5OmW1t9GZycUCaMA==",
+            "spanId": "nQeojkHxbBk=",
+            "observedTimeUnixNano": 1762239274155159000
+        },
+        {
+            "timeUnixNano": 1762239274155392000,
+            "severityNumber": "SEVERITY_NUMBER_INFO",
+            "severityText": "Information",
+            "body": {
+                "stringValue": "Request finished HTTP/1.1 GET http://localhost:5276/_framework/opaque-redirect?url=CfDJ8Ofm-8M8YUdLstNgAih9OLktXBfCOd5e-OMcLugYXKsv2R6MiwIPtF9oXTaxkxO7z5FmTwy5BY7FZb6b3QkVm828neiKBAeqRh-fkDr86FTpi-qoOV0_KYcxpn4-P1jUuE9GDEQbcaWYK0QVPeEKGGtSr5ZZyY7HXR4xc8yx5OV5 - 302 0 - 0.3530ms"
+            },
+            "attributes": [
+                {
+                    "key": "logrecord.event.id",
+                    "value": {
+                        "intValue": 2
+                    }
+                },
+                {
+                    "key": "ElapsedMilliseconds",
+                    "value": {
+                        "doubleValue": 0.353
+                    }
+                },
+                {
+                    "key": "StatusCode",
+                    "value": {
+                        "intValue": 302
+                    }
+                },
+                {
+                    "key": "ContentLength",
+                    "value": {
+                        "intValue": 0
+                    }
+                },
+                {
+                    "key": "Protocol",
+                    "value": {
+                        "stringValue": "HTTP/1.1"
+                    }
+                },
+                {
+                    "key": "Method",
+                    "value": {
+                        "stringValue": "GET"
+                    }
+                },
+                {
+                    "key": "Scheme",
+                    "value": {
+                        "stringValue": "http"
+                    }
+                },
+                {
+                    "key": "Host",
+                    "value": {
+                        "stringValue": "localhost:5276"
+                    }
+                },
+                {
+                    "key": "PathBase",
+                    "value": {
+                        "stringValue": ""
+                    }
+                },
+                {
+                    "key": "Path",
+                    "value": {
+                        "stringValue": "/_framework/opaque-redirect"
+                    }
+                },
+                {
+                    "key": "QueryString",
+                    "value": {
+                        "stringValue": "?url=CfDJ8Ofm-8M8YUdLstNgAih9OLktXBfCOd5e-OMcLugYXKsv2R6MiwIPtF9oXTaxkxO7z5FmTwy5BY7FZb6b3QkVm828neiKBAeqRh-fkDr86FTpi-qoOV0_KYcxpn4-P1jUuE9GDEQbcaWYK0QVPeEKGGtSr5ZZyY7HXR4xc8yx5OV5"
+                    }
+                },
+                {
+                    "key": "{OriginalFormat}",
+                    "value": {
+                        "stringValue": "Request finished {Protocol} {Method} {Scheme}://{Host}{PathBase}{Path}{QueryString} - {StatusCode} {ContentLength} {ContentType} {ElapsedMilliseconds}ms"
+                    }
+                },
+                {
+                    "key": "SpanId",
+                    "value": {
+                        "stringValue": "9d07a88e41f16c19"
+                    }
+                },
+                {
+                    "key": "TraceId",
+                    "value": {
+                        "stringValue": "043a699ffe4e996d6df4667271409a30"
+                    }
+                },
+                {
+                    "key": "ParentId",
+                    "value": {
+                        "stringValue": "0000000000000000"
+                    }
+                },
+                {
+                    "key": "ConnectionId",
+                    "value": {
+                        "stringValue": "0HNGRDQS1JA4E"
+                    }
+                },
+                {
+                    "key": "RequestId",
+                    "value": {
+                        "stringValue": "0HNGRDQS1JA4E:00000008"
+                    }
+                },
+                {
+                    "key": "RequestPath",
+                    "value": {
+                        "stringValue": "/_framework/opaque-redirect"
+                    }
+                }
+            ],
+            "droppedAttributesCount": 0,
+            "flags": 1,
+            "traceId": "BDppn/5OmW1t9GZycUCaMA==",
+            "spanId": "nQeojkHxbBk=",
+            "observedTimeUnixNano": 1762239274155392000
+        },
+        {
+            "timeUnixNano": 1762239274155195000,
+            "severityNumber": "SEVERITY_NUMBER_DEBUG",
+            "severityText": "Debug",
+            "body": {
+                "stringValue": "1 candidate(s) found for the request path '/_framework/opaque-redirect'"
+            },
+            "attributes": [
+                {
+                    "key": "logrecord.event.id",
+                    "value": {
+                        "intValue": 1001
+                    }
+                },
+                {
+                    "key": "logrecord.event.name",
+                    "value": {
+                        "stringValue": "CandidatesFound"
+                    }
+                },
+                {
+                    "key": "CandidateCount",
+                    "value": {
+                        "intValue": 1
+                    }
+                },
+                {
+                    "key": "Path",
+                    "value": {
+                        "stringValue": "/_framework/opaque-redirect"
+                    }
+                },
+                {
+                    "key": "{OriginalFormat}",
+                    "value": {
+                        "stringValue": "{CandidateCount} candidate(s) found for the request path '{Path}'"
+                    }
+                },
+                {
+                    "key": "SpanId",
+                    "value": {
+                        "stringValue": "9d07a88e41f16c19"
+                    }
+                },
+                {
+                    "key": "TraceId",
+                    "value": {
+                        "stringValue": "043a699ffe4e996d6df4667271409a30"
+                    }
+                },
+                {
+                    "key": "ParentId",
+                    "value": {
+                        "stringValue": "0000000000000000"
+                    }
+                },
+                {
+                    "key": "ConnectionId",
+                    "value": {
+                        "stringValue": "0HNGRDQS1JA4E"
+                    }
+                },
+                {
+                    "key": "RequestId",
+                    "value": {
+                        "stringValue": "0HNGRDQS1JA4E:00000008"
+                    }
+                },
+                {
+                    "key": "RequestPath",
+                    "value": {
+                        "stringValue": "/_framework/opaque-redirect"
+                    }
+                }
+            ],
+            "droppedAttributesCount": 0,
+            "flags": 1,
+            "traceId": "BDppn/5OmW1t9GZycUCaMA==",
+            "spanId": "nQeojkHxbBk=",
+            "observedTimeUnixNano": 1762239274155195000
+        },
+        {
+            "timeUnixNano": 1762239274155208000,
+            "severityNumber": "SEVERITY_NUMBER_DEBUG",
+            "severityText": "Debug",
+            "body": {
+                "stringValue": "Request matched endpoint 'HTTP: GET /_framework/opaque-redirect'"
+            },
+            "attributes": [
+                {
+                    "key": "logrecord.event.id",
+                    "value": {
+                        "intValue": 1
+                    }
+                },
+                {
+                    "key": "logrecord.event.name",
+                    "value": {
+                        "stringValue": "MatchSuccess"
+                    }
+                },
+                {
+                    "key": "EndpointName",
+                    "value": {
+                        "stringValue": "HTTP: GET /_framework/opaque-redirect"
+                    }
+                },
+                {
+                    "key": "{OriginalFormat}",
+                    "value": {
+                        "stringValue": "Request matched endpoint '{EndpointName}'"
+                    }
+                },
+                {
+                    "key": "SpanId",
+                    "value": {
+                        "stringValue": "9d07a88e41f16c19"
+                    }
+                },
+                {
+                    "key": "TraceId",
+                    "value": {
+                        "stringValue": "043a699ffe4e996d6df4667271409a30"
+                    }
+                },
+                {
+                    "key": "ParentId",
+                    "value": {
+                        "stringValue": "0000000000000000"
+                    }
+                },
+                {
+                    "key": "ConnectionId",
+                    "value": {
+                        "stringValue": "0HNGRDQS1JA4E"
+                    }
+                },
+                {
+                    "key": "RequestId",
+                    "value": {
+                        "stringValue": "0HNGRDQS1JA4E:00000008"
+                    }
+                },
+                {
+                    "key": "RequestPath",
+                    "value": {
+                        "stringValue": "/_framework/opaque-redirect"
+                    }
+                }
+            ],
+            "droppedAttributesCount": 0,
+            "flags": 1,
+            "traceId": "BDppn/5OmW1t9GZycUCaMA==",
+            "spanId": "nQeojkHxbBk=",
+            "observedTimeUnixNano": 1762239274155208000
+        },
+        {
+            "timeUnixNano": 1762239274155228000,
+            "severityNumber": "SEVERITY_NUMBER_DEBUG",
+            "severityText": "Debug",
+            "body": {
+                "stringValue": "Static files was skipped as the request already matched an endpoint."
+            },
+            "attributes": [
+                {
+                    "key": "logrecord.event.id",
+                    "value": {
+                        "intValue": 15
+                    }
+                },
+                {
+                    "key": "logrecord.event.name",
+                    "value": {
+                        "stringValue": "EndpointMatched"
+                    }
+                },
+                {
+                    "key": "{OriginalFormat}",
+                    "value": {
+                        "stringValue": "Static files was skipped as the request already matched an endpoint."
+                    }
+                },
+                {
+                    "key": "SpanId",
+                    "value": {
+                        "stringValue": "9d07a88e41f16c19"
+                    }
+                },
+                {
+                    "key": "TraceId",
+                    "value": {
+                        "stringValue": "043a699ffe4e996d6df4667271409a30"
+                    }
+                },
+                {
+                    "key": "ParentId",
+                    "value": {
+                        "stringValue": "0000000000000000"
+                    }
+                },
+                {
+                    "key": "ConnectionId",
+                    "value": {
+                        "stringValue": "0HNGRDQS1JA4E"
+                    }
+                },
+                {
+                    "key": "RequestId",
+                    "value": {
+                        "stringValue": "0HNGRDQS1JA4E:00000008"
+                    }
+                },
+                {
+                    "key": "RequestPath",
+                    "value": {
+                        "stringValue": "/_framework/opaque-redirect"
+                    }
+                }
+            ],
+            "droppedAttributesCount": 0,
+            "flags": 1,
+            "traceId": "BDppn/5OmW1t9GZycUCaMA==",
+            "spanId": "nQeojkHxbBk=",
+            "observedTimeUnixNano": 1762239274155228000
+        },
+        {
+            "timeUnixNano": 1762239274155233000,
+            "severityNumber": "SEVERITY_NUMBER_INFO",
+            "severityText": "Information",
+            "body": {
+                "stringValue": "Executing endpoint 'HTTP: GET /_framework/opaque-redirect'"
+            },
+            "attributes": [
+                {
+                    "key": "logrecord.event.name",
+                    "value": {
+                        "stringValue": "ExecutingEndpoint"
+                    }
+                },
+                {
+                    "key": "EndpointName",
+                    "value": {
+                        "stringValue": "HTTP: GET /_framework/opaque-redirect"
+                    }
+                },
+                {
+                    "key": "{OriginalFormat}",
+                    "value": {
+                        "stringValue": "Executing endpoint '{EndpointName}'"
+                    }
+                },
+                {
+                    "key": "SpanId",
+                    "value": {
+                        "stringValue": "9d07a88e41f16c19"
+                    }
+                },
+                {
+                    "key": "TraceId",
+                    "value": {
+                        "stringValue": "043a699ffe4e996d6df4667271409a30"
+                    }
+                },
+                {
+                    "key": "ParentId",
+                    "value": {
+                        "stringValue": "0000000000000000"
+                    }
+                },
+                {
+                    "key": "ConnectionId",
+                    "value": {
+                        "stringValue": "0HNGRDQS1JA4E"
+                    }
+                },
+                {
+                    "key": "RequestId",
+                    "value": {
+                        "stringValue": "0HNGRDQS1JA4E:00000008"
+                    }
+                },
+                {
+                    "key": "RequestPath",
+                    "value": {
+                        "stringValue": "/_framework/opaque-redirect"
+                    }
+                }
+            ],
+            "droppedAttributesCount": 0,
+            "flags": 1,
+            "traceId": "BDppn/5OmW1t9GZycUCaMA==",
+            "spanId": "nQeojkHxbBk=",
+            "observedTimeUnixNano": 1762239274155233000
+        },
+        {
+            "timeUnixNano": 1762239274155353000,
+            "severityNumber": "SEVERITY_NUMBER_INFO",
+            "severityText": "Information",
+            "body": {
+                "stringValue": "Executed endpoint 'HTTP: GET /_framework/opaque-redirect'"
+            },
+            "attributes": [
+                {
+                    "key": "logrecord.event.id",
+                    "value": {
+                        "intValue": 1
+                    }
+                },
+                {
+                    "key": "logrecord.event.name",
+                    "value": {
+                        "stringValue": "ExecutedEndpoint"
+                    }
+                },
+                {
+                    "key": "EndpointName",
+                    "value": {
+                        "stringValue": "HTTP: GET /_framework/opaque-redirect"
+                    }
+                },
+                {
+                    "key": "{OriginalFormat}",
+                    "value": {
+                        "stringValue": "Executed endpoint '{EndpointName}'"
+                    }
+                },
+                {
+                    "key": "SpanId",
+                    "value": {
+                        "stringValue": "9d07a88e41f16c19"
+                    }
+                },
+                {
+                    "key": "TraceId",
+                    "value": {
+                        "stringValue": "043a699ffe4e996d6df4667271409a30"
+                    }
+                },
+                {
+                    "key": "ParentId",
+                    "value": {
+                        "stringValue": "0000000000000000"
+                    }
+                },
+                {
+                    "key": "ConnectionId",
+                    "value": {
+                        "stringValue": "0HNGRDQS1JA4E"
+                    }
+                },
+                {
+                    "key": "RequestId",
+                    "value": {
+                        "stringValue": "0HNGRDQS1JA4E:00000008"
+                    }
+                },
+                {
+                    "key": "RequestPath",
+                    "value": {
+                        "stringValue": "/_framework/opaque-redirect"
+                    }
+                }
+            ],
+            "droppedAttributesCount": 0,
+            "flags": 1,
+            "traceId": "BDppn/5OmW1t9GZycUCaMA==",
+            "spanId": "nQeojkHxbBk=",
+            "observedTimeUnixNano": 1762239274155353000
+        },
+        {
+            "timeUnixNano": 1762239274155368000,
+            "severityNumber": "SEVERITY_NUMBER_DEBUG",
+            "severityText": "Debug",
+            "body": {
+                "stringValue": "Connection id \"0HNGRDQS1JA4E\" completed keep alive response."
+            },
+            "attributes": [
+                {
+                    "key": "logrecord.event.id",
+                    "value": {
+                        "intValue": 9
+                    }
+                },
+                {
+                    "key": "logrecord.event.name",
+                    "value": {
+                        "stringValue": "ConnectionKeepAlive"
+                    }
+                },
+                {
+                    "key": "ConnectionId",
+                    "value": {
+                        "stringValue": "0HNGRDQS1JA4E"
+                    }
+                },
+                {
+                    "key": "{OriginalFormat}",
+                    "value": {
+                        "stringValue": "Connection id \"{ConnectionId}\" completed keep alive response."
+                    }
+                },
+                {
+                    "key": "SpanId",
+                    "value": {
+                        "stringValue": "9d07a88e41f16c19"
+                    }
+                },
+                {
+                    "key": "TraceId",
+                    "value": {
+                        "stringValue": "043a699ffe4e996d6df4667271409a30"
+                    }
+                },
+                {
+                    "key": "ParentId",
+                    "value": {
+                        "stringValue": "0000000000000000"
+                    }
+                },
+                {
+                    "key": "ConnectionId",
+                    "value": {
+                        "stringValue": "0HNGRDQS1JA4E"
+                    }
+                },
+                {
+                    "key": "RequestId",
+                    "value": {
+                        "stringValue": "0HNGRDQS1JA4E:00000008"
+                    }
+                },
+                {
+                    "key": "RequestPath",
+                    "value": {
+                        "stringValue": "/_framework/opaque-redirect"
+                    }
+                }
+            ],
+            "droppedAttributesCount": 0,
+            "flags": 1,
+            "traceId": "BDppn/5OmW1t9GZycUCaMA==",
+            "spanId": "nQeojkHxbBk=",
+            "observedTimeUnixNano": 1762239274155368000
+        }
+    ]
+}

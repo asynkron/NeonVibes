@@ -790,6 +790,23 @@ body {
   border-radius: 10px;
 }
 
+.trace-span__timeline-tree-lines {
+  position: absolute;
+  left: calc(1.75rem + var(--trace-span-service-width, 16rem) + 0.75rem);
+  right: 0;
+  top: 0;
+  bottom: -0.75rem;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.trace-span__timeline-tree-line {
+  position: absolute;
+  width: 2px;
+  background: var(--ui-border);
+  transform: translateX(-50%);
+}
+
 .trace-span__markers {
   position: absolute;
   inset: 0;
