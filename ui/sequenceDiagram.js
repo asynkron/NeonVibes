@@ -77,6 +77,9 @@ export function generateSequenceDiagram(trace, config = {}) {
   // Render the sequence from root spans (calls and notes that reference participants)
   trace.roots.forEach((root, index) => {
     console.log(`[generateSequenceDiagram] Rendering root ${index + 1}/${trace.roots.length}`);
+    // Create a call from "start" to the root span's first component
+    renderRootCall(lines, root, trace, cfg);
+    // Then render the children recursively
     renderChildren(lines, root, trace, cfg);
   });
 
@@ -94,6 +97,11 @@ export function generateSequenceDiagram(trace, config = {}) {
 function renderParticipants(lines, trace) {
   // Track which components have been rendered to avoid duplicates
   const renderedComponentIds = new Set();
+
+  // Add "start" participant first - this represents the entry point for all root spans
+  lines.push(`    participant start as "Start"`);
+  renderedComponentIds.add("start");
+  console.log(`[renderParticipants] Added start participant`);
 
   // Helper to compute service color (same logic as trace viewer)
   const computeServiceColor = (serviceName) => {
@@ -424,6 +432,25 @@ function getComponentId(node, trace) {
   }
 
   return exists ? componentId : "unknown";
+}
+
+/**
+ * Renders a call from the "start" participant to the root span's component
+ * @param {string[]} lines - Output lines array
+ * @param {TraceSpanNode} root - Root node
+ * @param {TraceModel} trace - Trace model
+ * @param {SequenceConfig} config - Configuration
+ */
+function renderRootCall(lines, root, trace, config) {
+  const rootComponentId = escapeMermaidId(getComponentId(root, trace));
+  const operation = root.description?.operation || root.span.name || "Start";
+
+  const escapedOperation = escapeMermaid(operation);
+
+  console.log(`[renderRootCall] start -> ${rootComponentId}: ${escapedOperation}`);
+
+  // Create call from start to root component
+  lines.push(`    start->>+${rootComponentId}: ${escapedOperation}`);
 }
 
 /**
