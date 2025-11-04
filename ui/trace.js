@@ -1178,24 +1178,24 @@ function calculateVisibleSegments(node, trace, timeWindow) {
 }
 
 /**
- * Renders gray line segments in the center of a span bar, interrupted by child spans.
+ * Renders runline-x elements in the center of a span bar, interrupted by child spans.
  * @param {TraceSpanNode} node - The span node
  * @param {TraceModel} trace - The trace model
  * @param {Object} timeWindow - Time window { start: 0-100, end: 0-100 }
- * @returns {HTMLElement|null} Container with gray line segments, or null if no segments
+ * @returns {HTMLElement|null} Container with runline-x elements, or null if no segments
  */
-function renderGrayLineSegments(node, trace, timeWindow) {
+function renderRunlineX(node, trace, timeWindow) {
   const segments = calculateVisibleSegments(node, trace, timeWindow);
   if (segments.length === 0) {
     return null;
   }
 
   const container = document.createElement("div");
-  container.className = "trace-span__gray-line-segments";
+  container.className = "trace-span__runline-x-container";
 
   segments.forEach((segment) => {
     const line = document.createElement("div");
-    line.className = "trace-span__gray-line-segment";
+    line.className = "trace-span__runline-x";
     line.style.left = `${segment.startPercent}%`;
     line.style.width = `${segment.widthPercent}%`;
     container.append(line);
@@ -1234,12 +1234,12 @@ function calculateChildVerticalOffset(parentSummary, childSpanId) {
 }
 
 /**
- * Updates the heights and X positions of timeline tree lines by measuring actual DOM positions.
+ * Updates the heights and X positions of runline-y elements by measuring actual DOM positions.
  * @param {HTMLElement} parentSummary - The parent summary element
  */
-function updateTimelineTreeLineHeights(parentSummary) {
-  const treeLinesContainer = parentSummary.querySelector('.trace-span__timeline-tree-lines');
-  if (!treeLinesContainer) {
+function updateRunlineYHeights(parentSummary) {
+  const runlineYContainer = parentSummary.querySelector('.trace-span__runline-y-container');
+  if (!runlineYContainer) {
     return;
   }
 
@@ -1250,8 +1250,8 @@ function updateTimelineTreeLineHeights(parentSummary) {
     return;
   }
 
-  // Get timeline area position (where the tree lines container is positioned)
-  const timelineAreaRect = treeLinesContainer.getBoundingClientRect();
+  // Get timeline area position (where the runline-y container is positioned)
+  const timelineAreaRect = runlineYContainer.getBoundingClientRect();
 
   // Calculate offset from top of summary to bottom of timeline bar
   const parentBar = parentSummary.querySelector('.trace-span__bar');
@@ -1261,7 +1261,7 @@ function updateTimelineTreeLineHeights(parentSummary) {
   const parentBarRect = parentBar.getBoundingClientRect();
   const barBottomOffset = parentBarRect.bottom - parentSummaryRect.top;
 
-  const lines = treeLinesContainer.querySelectorAll('.trace-span__timeline-tree-line');
+  const lines = runlineYContainer.querySelectorAll('.trace-span__runline-y');
 
   // One span-line height = 32px (2rem)
   const spanLineHeight = 32;
@@ -1328,21 +1328,21 @@ function updateTimelineTreeLineHeights(parentSummary) {
 }
 
 /**
- * Renders tree lines in the timeline area connecting parent span to child spans.
+ * Renders runline-y elements in the timeline area connecting parent span to child spans.
  * Creates vertical lines from the parent span bar down to each child span bar.
  * @param {TraceSpanNode} node - The parent span node
  * @param {TraceModel} trace - The trace model
  * @param {Object} timeWindow - Time window { start: 0-100, end: 0-100 }
  * @param {Set<string>} expandedChildren - Set of expanded child span IDs
- * @returns {HTMLElement|null} Container with tree lines, or null if no children
+ * @returns {HTMLElement|null} Container with runline-y elements, or null if no children
  */
-function renderTimelineTreeLines(node, trace, timeWindow, expandedChildren = new Set()) {
+function renderRunlineY(node, trace, timeWindow, expandedChildren = new Set()) {
   if (!node.children || node.children.length === 0) {
     return null;
   }
 
   const container = document.createElement("div");
-  container.className = "trace-span__timeline-tree-lines";
+  container.className = "trace-span__runline-y-container";
 
   // Calculate parent span offsets to get the visible portion and position within timeline area
   const parentOffsets = computeSpanOffsets(trace, node.span, timeWindow);
@@ -1392,7 +1392,7 @@ function renderTimelineTreeLines(node, trace, timeWindow, expandedChildren = new
     if (positionPercentWithinParent >= 0 && positionPercentWithinParent <= 100) {
       // Create line - X position will be set based on actual child DOM position after children are rendered
       const line = document.createElement("div");
-      line.className = "trace-span__timeline-tree-line";
+      line.className = "trace-span__runline-y";
       line.dataset.childSpanId = child.span.spanId;
       line.style.display = 'none'; // Hidden until height and position are set
       container.append(line);
@@ -1517,20 +1517,20 @@ function renderSpanSummary(trace, node, timeWindow = { start: 0, end: 100 }, exp
   }
 
   // Add gray line segments that show parent span duration, interrupted by child spans
-  const grayLineSegments = renderGrayLineSegments(node, trace, timeWindow);
-  if (grayLineSegments) {
-    bar.append(grayLineSegments);
+  const runlineX = renderRunlineX(node, trace, timeWindow);
+  if (runlineX) {
+    bar.append(runlineX);
   }
 
   timeline.append(bar);
 
   summary.append(timeline);
 
-  // Add tree lines connecting parent to children in the timeline area
+  // Add runline-y elements connecting parent to children in the timeline area
   // Position on summary so they can extend beyond the timeline (which has overflow: hidden)
-  const timelineTreeLines = renderTimelineTreeLines(node, trace, timeWindow, expandedChildren);
-  if (timelineTreeLines) {
-    summary.append(timelineTreeLines);
+  const runlineY = renderRunlineY(node, trace, timeWindow, expandedChildren);
+  if (runlineY) {
+    summary.append(runlineY);
   }
 
   return { summary, expander, service, timeline };
@@ -1623,7 +1623,7 @@ function renderSpanNode(trace, node, state, isLastChild = false, parentDepth = -
     if (childrenOpen) {
       // Use requestAnimationFrame to ensure DOM is fully laid out
       requestAnimationFrame(() => {
-        updateTimelineTreeLineHeights(summary);
+        updateRunlineYHeights(summary);
       });
     }
     expander.setAttribute("aria-controls", childrenContainer.id);
@@ -1660,7 +1660,7 @@ function renderSpanNode(trace, node, state, isLastChild = false, parentDepth = -
       spanState.expandedChildren.add(spanId);
       // Update tree line heights after expanding
       requestAnimationFrame(() => {
-        updateTimelineTreeLineHeights(summary);
+        updateRunlineYHeights(summary);
       });
     } else {
       spanState.expandedChildren.delete(spanId);

@@ -774,23 +774,23 @@ body {
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1);
 }
 
-.trace-span__gray-line-segments {
+.trace-span__runline-x-container {
   position: absolute;
   inset: 0;
   pointer-events: none;
   z-index: 1;
 }
 
-.trace-span__gray-line-segment {
+.trace-span__runline-x {
   position: absolute;
   top: calc(50% + 10px);
   height: 4px;
-  background: rgba(200, 255, 255, 0.4);
+  background: var(--text-strong);
   transform: translateY(-50%);
   border-radius: 10px;
 }
 
-.trace-span__timeline-tree-lines {
+.trace-span__runline-y-container {
   position: absolute;
   left: calc(1.75rem + var(--trace-span-service-width, 16rem) + 0.75rem);
   right: 0;
@@ -800,10 +800,10 @@ body {
   z-index: 1;
 }
 
-.trace-span__timeline-tree-line {
+.trace-span__runline-y {
   position: absolute;
-  width: 2px;
-  background: rgba(200, 255, 255, 0.4);
+  width: 4px;
+  background: var(--text-strong);
   transform: translateX(-50%);
   border-radius: 10px;
   /* height is set dynamically by JS */
