@@ -1204,6 +1204,81 @@ function renderRunlineX(node, trace, timeWindow) {
   return container;
 }
 
+/**
+ * Updates CSS variables for runline-y positioning based on current DOM layout.
+ * Only updates horizontal positions (left/right) since vertical uses wrapper's natural height.
+ * Also recursively updates all ancestor parents since their line positions may change.
+ * @param {HTMLElement} parentSummary - The parent summary element
+ */
+function updateRunlineYCSSVariables(parentSummary) {
+  if (!parentSummary) {
+    return;
+  }
+  
+  const parentContainer = parentSummary.closest('.trace-span');
+  if (!parentContainer) {
+    return;
+  }
+
+  const childrenContainer = parentContainer.querySelector('.trace-span__children');
+  if (!childrenContainer) {
+    // No children, nothing to update for this span
+    return;
+  }
+
+  // Find all child wrappers
+  const wrappers = childrenContainer.querySelectorAll('.trace-span__child-wrapper');
+  
+  // Get parent bar bottom offset for calculating vertical offset
+  const parentBar = parentSummary.querySelector('.trace-span__bar');
+  if (!parentBar) {
+    return;
+  }
+  const summaryRect = parentSummary.getBoundingClientRect();
+  const parentBarBottom = parentBar.getBoundingClientRect().bottom - summaryRect.top;
+  const wrapperTopOffset = summaryRect.height; // Distance from summary top to wrapper top
+  const parentBarBottomOffset = parentBarBottom - wrapperTopOffset;
+  
+  wrappers.forEach((wrapper) => {
+    // Update parent bar bottom offset (used to extend line upward)
+    wrapper.style.setProperty("--parent-bar-bottom-offset", `${Math.max(0, parentBarBottomOffset)}px`);
+    
+    // Find the direct child span (not nested wrappers)
+    const directChild = wrapper.querySelector(':scope > .trace-span');
+    if (!directChild) {
+      return;
+    }
+    
+    const childSummary = directChild.querySelector('.trace-span__summary');
+    if (!childSummary) {
+      return;
+    }
+    
+    const childBar = childSummary.querySelector('.trace-span__bar');
+    if (!childBar) {
+      return;
+    }
+    
+    // Recalculate horizontal positions based on current layout
+    const childBarRect = childBar.getBoundingClientRect();
+    const wrapperRect = wrapper.getBoundingClientRect();
+    const childBarLeft = childBarRect.left - wrapperRect.left;
+    const childBarRight = childBarRect.right - wrapperRect.left;
+    
+    wrapper.style.setProperty("--child-bar-left", `${childBarLeft}px`);
+    wrapper.style.setProperty("--child-bar-right", `${childBarRight}px`);
+  });
+  
+  // Recursively update parent wrappers since their line positions may have changed
+  const parentSpan = parentContainer.parentElement?.closest('.trace-span');
+  if (parentSpan) {
+    const parentSummary = parentSpan.querySelector('.trace-span__summary');
+    if (parentSummary) {
+      updateRunlineYCSSVariables(parentSummary);
+    }
+  }
+}
+
 function renderSpanSummary(trace, node, timeWindow = { start: 0, end: 100 }, expandedChildren = new Set(), showRunlineX = true, showRunlineY = true) {
   const summary = document.createElement("div");
   summary.className = "trace-span__summary";
@@ -1421,8 +1496,13 @@ function renderSpanNode(trace, node, state, isLastChild = false, parentDepth = -
       const wrapper = document.createElement("div");
       wrapper.className = "trace-span__child-wrapper";
       
-      // Set CSS variables for parent bar bottom position
-      wrapper.style.setProperty("--parent-bar-bottom", `${parentBarBottom}px`);
+      // Set CSS variable for parent bar bottom offset (used to extend line upward)
+      // Calculate offset from wrapper top to parent bar bottom
+      // The wrapper is positioned after the summary, so we need to know the distance
+      const summaryRect = summary.getBoundingClientRect();
+      const wrapperTopOffset = summaryRect.height; // Distance from summary top to wrapper top
+      const parentBarBottomOffset = parentBarBottom - wrapperTopOffset;
+      wrapper.style.setProperty("--parent-bar-bottom-offset", `${Math.max(0, parentBarBottomOffset)}px`);
       
       // If there's a previous wrapper, add it first (nested)
       if (previousWrapper) {
@@ -1446,11 +1526,7 @@ function renderSpanNode(trace, node, state, isLastChild = false, parentDepth = -
             wrapper.style.setProperty("--child-bar-left", `${childBarLeft}px`);
             wrapper.style.setProperty("--child-bar-right", `${childBarRight}px`);
             
-            // Set the height of just the direct child span (not including nested wrappers)
-            // This is the distance from wrapper top to the direct child span
-            const childElementRect = childElement.getBoundingClientRect();
-            const directChildHeight = childElementRect.top - wrapperRect.top;
-            wrapper.style.setProperty("--direct-child-height", `${directChildHeight}px`);
+            // No need to set direct-child-height - we use wrapper's natural height (100%)
           }
         }
       });
@@ -1505,9 +1581,19 @@ function renderSpanNode(trace, node, state, isLastChild = false, parentDepth = -
     service.setAttribute("aria-expanded", String(next));
     if (next) {
       spanState.expandedChildren.add(spanId);
+      // Update runline-y CSS variables after expanding, using requestAnimationFrame to ensure DOM is laid out
+      requestAnimationFrame(() => {
+        // Update this span's wrappers and all ancestor parents recursively
+        updateRunlineYCSSVariables(summary);
+      });
     } else {
       spanState.expandedChildren.delete(spanId);
       pruneDescendantState(node, spanState);
+      // Update parent wrappers when collapsing, since line heights may change
+      requestAnimationFrame(() => {
+        // Update this span's wrappers and all ancestor parents recursively
+        updateRunlineYCSSVariables(summary);
+      });
     }
   };
 
