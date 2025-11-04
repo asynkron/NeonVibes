@@ -847,7 +847,7 @@ body {
   border-radius: 10px;
   pointer-events: none;
   z-index: 1;
-  top: calc(var(--parent-bar-bottom) - 2px);
+  top: calc(var(--parent-bar-bottom) - 6px);
   /* Use the height of the first direct child .trace-span, not the wrapper's full height */
   height: calc(var(--direct-child-height, 0px) - var(--parent-bar-bottom) + 2px + var(--span-line-height, 32px));
   transform: translateX(-50%);
