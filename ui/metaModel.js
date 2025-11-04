@@ -304,8 +304,8 @@ function extractExternalHttpEndpoint(span, serviceName) {
  */
 const EXTRACTORS = [
   extractRoot,
-  extractHttpRequest,
   extractHttpEndpoint,
+  extractHttpRequest,
   extractDatabase,
   extractQueue,
   extractQueueConsumer,
