@@ -168,8 +168,8 @@ function renderParticipants(lines, trace) {
         if (color) {
           const rgb = hexToRgb(color);
           if (rgb) {
-            // Use semi-transparent color for the box background
-            boxColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.2)`;
+            // Use more transparent color for the box background
+            boxColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.05)`;
             console.log(`[renderParticipants] Box color for group ${groupName}: ${boxColor} (service: ${firstComponent.serviceName})`);
           }
         }
