@@ -1204,227 +1204,6 @@ function renderRunlineX(node, trace, timeWindow) {
   return container;
 }
 
-/**
- * Calculates the vertical distance from parent summary to child span by measuring actual DOM elements.
- * @param {HTMLElement} parentSummary - The parent summary element
- * @param {string} childSpanId - The child span ID
- * @returns {number|null} Distance in pixels, or null if elements not found
- */
-function calculateChildVerticalOffset(parentSummary, childSpanId) {
-  // Find parent container
-  const parentContainer = parentSummary.closest('.trace-span');
-  if (!parentContainer) {
-    return null;
-  }
-
-  // Find child span by its ID
-  const childSpan = parentContainer.querySelector(`[data-span-id="${childSpanId}"]`);
-  if (!childSpan) {
-    return null;
-  }
-
-  // Get positions
-  const parentRect = parentSummary.getBoundingClientRect();
-  const childRect = childSpan.getBoundingClientRect();
-
-  // Calculate distance: child y-screen-position minus parent y-screen-position
-  const distance = childRect.top - parentRect.top;
-
-  return distance;
-}
-
-/**
- * Updates the heights and X positions of runline-y elements by measuring actual DOM positions.
- * @param {HTMLElement} parentSummary - The parent summary element
- */
-function updateRunlineYHeights(parentSummary) {
-  const runlineYContainer = parentSummary.querySelector('.trace-span__runline-y-container');
-  if (!runlineYContainer) {
-    return;
-  }
-
-  // Get parent summary and container positions
-  const parentSummaryRect = parentSummary.getBoundingClientRect();
-  const parentContainer = parentSummary.closest('.trace-span');
-  if (!parentContainer) {
-    return;
-  }
-
-  // Get timeline area position (where the runline-y container is positioned)
-  const timelineAreaRect = runlineYContainer.getBoundingClientRect();
-
-  // Calculate offset from top of summary to bottom of timeline bar
-  const parentBar = parentSummary.querySelector('.trace-span__bar');
-  if (!parentBar) {
-    return;
-  }
-  const parentBarRect = parentBar.getBoundingClientRect();
-  const barBottomOffset = parentBarRect.bottom - parentSummaryRect.top;
-
-  const lines = runlineYContainer.querySelectorAll('.trace-span__runline-y');
-
-  // One span-line height = 32px (2rem)
-  const spanLineHeight = 32;
-
-  lines.forEach((line) => {
-    const childSpanId = line.dataset.childSpanId;
-    const position = line.dataset.position; // "start" or "end"
-    if (!childSpanId) {
-      line.style.display = 'none';
-      return;
-    }
-
-    // Find child span element
-    const childSpan = parentContainer.querySelector(`[data-span-id="${childSpanId}"]`);
-    if (!childSpan) {
-      line.style.display = 'none';
-      return;
-    }
-
-    // Check if child is visible (not hidden)
-    // Note: getBoundingClientRect() will return (0,0) for hidden elements, so we check that later
-
-    // Find child span's bar element (the actual visual element in the timeline)
-    const childSummary = childSpan.querySelector('.trace-span__summary');
-    if (!childSummary) {
-      line.style.display = 'none';
-      return;
-    }
-
-    const childBar = childSummary.querySelector('.trace-span__bar');
-    if (!childBar) {
-      line.style.display = 'none';
-      return;
-    }
-
-    // Get child bar's position
-    const childBarRect = childBar.getBoundingClientRect();
-
-    // Check if child bar is visible (has valid dimensions)
-    if (childBarRect.width === 0 || childBarRect.height === 0) {
-      line.style.display = 'none';
-      return;
-    }
-
-    // Calculate X position based on start or end of child bar
-    let xPosition;
-    if (position === "end") {
-      // Right edge of the bar
-      xPosition = childBarRect.right - timelineAreaRect.left;
-    } else {
-      // Left edge of the bar (start)
-      xPosition = childBarRect.left - timelineAreaRect.left;
-    }
-
-    // Distance from parent summary top to child span top
-    const totalDistance = calculateChildVerticalOffset(parentSummary, childSpanId);
-
-    if (totalDistance !== null && totalDistance > barBottomOffset && !isNaN(xPosition) && xPosition >= 0) {
-      // Line height = total distance minus the offset to where line starts (bottom of bar) + one span-line height
-      const lineHeight = totalDistance - barBottomOffset + spanLineHeight - 4;
-      // Move up by 2px
-      line.style.top = `${barBottomOffset - 1}px`;
-      line.style.height = `${lineHeight}px`;
-      // Set X position based on child's actual screen position, adjusted 8px to the right
-      // Since the line uses transform: translateX(-50%), the left position is where the center should be
-      line.style.left = `${xPosition}px`;
-      line.style.display = 'block';
-    } else {
-      line.style.display = 'none';
-    }
-  });
-}
-
-/**
- * Renders runline-y elements in the timeline area connecting parent span to child spans.
- * Creates vertical lines from the parent span bar down to each child span bar.
- * @param {TraceSpanNode} node - The parent span node
- * @param {TraceModel} trace - The trace model
- * @param {Object} timeWindow - Time window { start: 0-100, end: 0-100 }
- * @param {Set<string>} expandedChildren - Set of expanded child span IDs
- * @returns {HTMLElement|null} Container with runline-y elements, or null if no children
- */
-function renderRunlineY(node, trace, timeWindow, expandedChildren = new Set()) {
-  if (!node.children || node.children.length === 0) {
-    return null;
-  }
-
-  const container = document.createElement("div");
-  container.className = "trace-span__runline-y-container";
-
-  // Calculate parent span offsets to get the visible portion and position within timeline area
-  const parentOffsets = computeSpanOffsets(trace, node.span, timeWindow);
-  if (parentOffsets.widthPercent === 0) {
-    return null;
-  }
-
-  // Calculate visible span boundaries
-  const totalDuration = trace.durationNano || Math.max(
-    toNumberTimestamp(trace.endTimeUnixNano) - toNumberTimestamp(trace.startTimeUnixNano),
-    1
-  );
-  const windowStart = timeWindow.start || 0;
-  const windowEnd = timeWindow.end || 100;
-  const traceStart = toNumberTimestamp(trace.startTimeUnixNano);
-  const windowStartTime = traceStart + (totalDuration * windowStart / 100);
-  const windowEndTime = traceStart + (totalDuration * windowEnd / 100);
-
-  const parentSpanStart = toNumberTimestamp(node.span.startTimeUnixNano);
-  const parentSpanEnd = toNumberTimestamp(node.span.endTimeUnixNano);
-  const visibleParentStart = Math.max(parentSpanStart, windowStartTime);
-  const visibleParentEnd = Math.min(parentSpanEnd, windowEndTime);
-  const visibleParentDuration = visibleParentEnd - visibleParentStart;
-
-  if (visibleParentDuration <= 0) {
-    return null;
-  }
-
-  // Create a line for each child at its start position
-  node.children.forEach((child) => {
-    const childStart = toNumberTimestamp(child.span.startTimeUnixNano);
-    const childEnd = toNumberTimestamp(child.span.endTimeUnixNano);
-
-    // Skip if child is completely outside the visible window
-    if (childEnd < windowStartTime || childStart > windowEndTime) {
-      return;
-    }
-
-    // Clamp child start to visible window
-    const visibleChildStart = Math.max(childStart, windowStartTime);
-    const visibleChildEnd = Math.min(childEnd, windowEndTime);
-
-    // Calculate position relative to visible parent span (0-100% of parent span width)
-    const positionPercentWithinParent = ((visibleChildStart - visibleParentStart) / visibleParentDuration) * 100;
-
-    // Create line at start position if child start is within visible parent span
-    if (positionPercentWithinParent >= 0 && positionPercentWithinParent <= 100) {
-      // Create line at start - X position will be set based on actual child DOM position after children are rendered
-      const lineStart = document.createElement("div");
-      lineStart.className = "trace-span__runline-y";
-      lineStart.dataset.childSpanId = child.span.spanId;
-      lineStart.dataset.position = "start";
-      lineStart.style.display = 'none'; // Hidden until height and position are set
-      container.append(lineStart);
-    }
-
-    // Calculate position for end of child span
-    const positionPercentEndWithinParent = ((visibleChildEnd - visibleParentStart) / visibleParentDuration) * 100;
-
-    // Create line at end position if child end is within visible parent span
-    if (positionPercentEndWithinParent >= 0 && positionPercentEndWithinParent <= 100) {
-      // Create line at end - X position will be set based on actual child DOM position after children are rendered
-      const lineEnd = document.createElement("div");
-      lineEnd.className = "trace-span__runline-y";
-      lineEnd.dataset.childSpanId = child.span.spanId;
-      lineEnd.dataset.position = "end";
-      lineEnd.style.display = 'none'; // Hidden until height and position are set
-      container.append(lineEnd);
-    }
-  });
-
-  return container.childElementCount > 0 ? container : null;
-}
-
 function renderSpanSummary(trace, node, timeWindow = { start: 0, end: 100 }, expandedChildren = new Set(), showRunlineX = true, showRunlineY = true) {
   const summary = document.createElement("div");
   summary.className = "trace-span__summary";
@@ -1550,15 +1329,6 @@ function renderSpanSummary(trace, node, timeWindow = { start: 0, end: 100 }, exp
   timeline.append(bar);
 
   summary.append(timeline);
-
-  // Add runline-y elements connecting parent to children in the timeline area
-  // Position on summary so they can extend beyond the timeline (which has overflow: hidden)
-  if (showRunlineY) {
-    const runlineY = renderRunlineY(node, trace, timeWindow, expandedChildren);
-    if (runlineY) {
-      summary.append(runlineY);
-    }
-  }
 
   return { summary, expander, service, timeline };
 }
@@ -1703,14 +1473,6 @@ function renderSpanNode(trace, node, state, isLastChild = false, parentDepth = -
   if (childrenContainer) {
     container.classList.toggle("trace-span--children-open", childrenOpen);
     childrenContainer.hidden = !childrenOpen;
-
-    // Update tree line heights after children are rendered and visibility is set
-    if (childrenOpen) {
-      // Use requestAnimationFrame to ensure DOM is fully laid out
-      requestAnimationFrame(() => {
-        updateRunlineYHeights(summary);
-      });
-    }
     expander.setAttribute("aria-controls", childrenContainer.id);
     expander.setAttribute("aria-expanded", String(childrenOpen));
     service.setAttribute("aria-controls", childrenContainer.id);
@@ -1743,10 +1505,6 @@ function renderSpanNode(trace, node, state, isLastChild = false, parentDepth = -
     service.setAttribute("aria-expanded", String(next));
     if (next) {
       spanState.expandedChildren.add(spanId);
-      // Update tree line heights after expanding
-      requestAnimationFrame(() => {
-        updateRunlineYHeights(summary);
-      });
     } else {
       spanState.expandedChildren.delete(spanId);
       pruneDescendantState(node, spanState);
@@ -2037,6 +1795,12 @@ export function renderTrace(host, trace, state) {
 
   const list = document.createElement("div");
   list.className = "trace-span-list";
+  // Add class to control CSS-based runline-y visibility
+  if (viewState.showRunlineY) {
+    list.classList.add("trace-runline-y-enabled");
+  } else {
+    list.classList.remove("trace-runline-y-enabled");
+  }
 
   // Create timeline markers (vertical lines) that span all timelines
   const timeWindow = {

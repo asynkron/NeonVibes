@@ -809,26 +809,8 @@ body {
   border-radius: 10px;
 }
 
-.trace-span__runline-y-container {
-  position: absolute;
-  left: calc(1.75rem + var(--trace-span-service-width, 16rem) + 0.75rem);
-  right: 0;
-  top: 0;
-  bottom: -0.75rem;
-  pointer-events: none;
-  z-index: 1;
-}
 
-.trace-span__runline-y {
-  position: absolute;
-  width: var(--runline-thickness);
-  background: var(--text-strong);
-  transform: translateX(-50%);
-  border-radius: 10px;
-  /* height is set dynamically by JS */
-}
-
-/* Use CSS to draw runline-y lines based on wrapper height */
+/* Child wrapper for positioning */
 .trace-span__child-wrapper {
   position: relative;
 }
@@ -836,10 +818,11 @@ body {
 /* Draw lines from parent bar to child span using wrapper height */
 /* Target only wrappers that have a .trace-span as a direct child (not nested wrappers) */
 /* The wrapper's height should represent the distance from parent to its direct child span */
-.trace-span__child-wrapper:has(> .trace-span:first-child:not(:last-child))::before,
-.trace-span__child-wrapper:has(> .trace-span:last-child)::before,
-.trace-span__child-wrapper:has(> .trace-span:first-child:not(:last-child))::after,
-.trace-span__child-wrapper:has(> .trace-span:last-child)::after {
+/* Only show these CSS-based lines when runline-y is enabled via checkbox */
+.trace-runline-y-enabled .trace-span__child-wrapper:has(> .trace-span:first-child:not(:last-child))::before,
+.trace-runline-y-enabled .trace-span__child-wrapper:has(> .trace-span:last-child)::before,
+.trace-runline-y-enabled .trace-span__child-wrapper:has(> .trace-span:first-child:not(:last-child))::after,
+.trace-runline-y-enabled .trace-span__child-wrapper:has(> .trace-span:last-child)::after {
   content: "";
   position: absolute;
   width: var(--runline-thickness);
@@ -854,14 +837,14 @@ body {
 }
 
 /* Line at start position - positioned at child bar's left edge */
-.trace-span__child-wrapper:has(> .trace-span:first-child:not(:last-child))::before,
-.trace-span__child-wrapper:has(> .trace-span:last-child)::before {
+.trace-runline-y-enabled .trace-span__child-wrapper:has(> .trace-span:first-child:not(:last-child))::before,
+.trace-runline-y-enabled .trace-span__child-wrapper:has(> .trace-span:last-child)::before {
   left: var(--child-bar-left);
 }
 
 /* Line at end position - positioned at child bar's right edge */
-.trace-span__child-wrapper:has(> .trace-span:first-child:not(:last-child))::after,
-.trace-span__child-wrapper:has(> .trace-span:last-child)::after {
+.trace-runline-y-enabled .trace-span__child-wrapper:has(> .trace-span:first-child:not(:last-child))::after,
+.trace-runline-y-enabled .trace-span__child-wrapper:has(> .trace-span:last-child)::after {
   left: var(--child-bar-right);
 }
 
