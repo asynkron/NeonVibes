@@ -182,14 +182,21 @@ function renderParticipants(lines, trace) {
         lines.push(`    box ${groupName}`);
       }
 
-      groupComponents.forEach((component) => {
+      // Sort components by entrypointType: entrypoints (1) first, then internals (2), then exitpoints (3)
+      const sortedComponents = [...groupComponents].sort((a, b) => {
+        const aType = a.entrypointType || 2; // Default to internal
+        const bType = b.entrypointType || 2; // Default to internal
+        return aType - bType; // 1 (entrypoint) < 2 (internal) < 3 (exitpoint)
+      });
+
+      sortedComponents.forEach((component) => {
         // Only render if not already rendered
         if (!renderedComponentIds.has(component.id)) {
           const declaration = getComponentDeclaration(component);
           if (declaration) {
             lines.push(`        ${declaration}`);
             renderedComponentIds.add(component.id);
-            console.log(`[renderParticipants] Added participant to group ${groupName}: ${declaration} (component.groupId: "${component.groupId}", id: ${component.id})`);
+            console.log(`[renderParticipants] Added participant to group ${groupName}: ${declaration} (component.groupId: "${component.groupId}", id: ${component.id}, entrypointType: ${component.entrypointType || 2})`);
           }
         } else {
           console.warn(`[renderParticipants] Component ${component.id} (groupId: "${component.groupId}") already rendered, skipping duplicate`);

@@ -7,8 +7,13 @@
 /**
  * @typedef {import("./trace.js").TraceSpan} TraceSpan
  * @typedef {{ id: string, name: string }} Group
- * @typedef {{ id: string, name: string, groupId: string, kind: string, componentStack: string }} Component
- * @typedef {{ groupName: string, componentName: string, operation: string, componentKind: string, componentStack: string, isClient?: boolean }} SpanDescription
+ * @typedef {{ id: string, name: string, groupId: string, kind: string, componentStack: string, entrypointType?: number }} Component
+ * @typedef {{ groupName: string, componentName: string, operation: string, componentKind: string, componentStack: string, isClient?: boolean, entrypointType?: number }} SpanDescription
+ * 
+ * entrypointType values:
+ * 1 = entrypoint (HTTP endpoints that receive requests)
+ * 2 = internal (default, most components)
+ * 3 = exitpoint (HTTP clients that make outbound calls)
  */
 
 import { SpanKind } from "./trace.js";
@@ -70,6 +75,7 @@ function extractRoot(span, serviceName) {
       operation: "",
       componentKind: ComponentKind.START,
       componentStack: "",
+      entrypointType: 2, // internal
     };
   }
   return null;
@@ -92,6 +98,7 @@ function extractHttpRequest(span, serviceName) {
       componentKind: ComponentKind.SERVICE,
       componentStack: "",
       isClient: true,
+      entrypointType: 3, // exitpoint
     };
   }
   return null;
@@ -114,6 +121,7 @@ function extractHttpEndpoint(span, serviceName) {
       operation: `HTTP${methodStr}`,
       componentKind: ComponentKind.ENDPOINT,
       componentStack: "ASP.NET Core",
+      entrypointType: 1, // entrypoint
     };
   }
 
@@ -128,6 +136,7 @@ function extractHttpEndpoint(span, serviceName) {
       operation: `HTTP${methodStr}`,
       componentKind: ComponentKind.ENDPOINT,
       componentStack: "Unknown HTTP Server",
+      entrypointType: 1, // entrypoint
     };
   }
   return null;
@@ -149,6 +158,7 @@ function extractDatabase(span, serviceName) {
       operation: "",
       componentKind: ComponentKind.DATABASE,
       componentStack: "Azure CosmosDB",
+      entrypointType: 2, // internal
     };
   }
 
@@ -184,6 +194,7 @@ function extractDatabase(span, serviceName) {
       operation: statementShort,
       componentKind: ComponentKind.DATABASE,
       componentStack: dbSystem,
+      entrypointType: 2, // internal
     };
   }
   return null;
@@ -210,6 +221,7 @@ function extractQueue(span, serviceName) {
           operation: "",
           componentKind: ComponentKind.QUEUE,
           componentStack: "Azure Storage Queue",
+          entrypointType: 2, // internal
         };
       }
     } catch (e) {
@@ -242,6 +254,7 @@ function extractQueue(span, serviceName) {
     operation: "",
     componentKind: ComponentKind.QUEUE,
     componentStack: messagingSystem,
+    entrypointType: 2, // internal
   };
 }
 
@@ -260,6 +273,7 @@ function extractQueueConsumer(span, serviceName) {
       operation: span.name || "",
       componentKind: ComponentKind.QUEUE_CONSUMER,
       componentStack: "",
+      entrypointType: 2, // internal
     };
   }
 
@@ -273,6 +287,7 @@ function extractQueueConsumer(span, serviceName) {
         operation: "",
         componentKind: ComponentKind.QUEUE_CONSUMER,
         componentStack: "",
+        entrypointType: 2, // internal
       };
     }
   }
@@ -294,6 +309,7 @@ function extractExternalHttpEndpoint(span, serviceName) {
       operation: "",
       componentKind: ComponentKind.SERVICE,
       componentStack: "",
+      entrypointType: 2, // internal
     };
   }
   return null;
@@ -334,6 +350,7 @@ export function extractSpanDescription(span, serviceName) {
     componentKind: ComponentKind.SERVICE,
     componentStack: "",
     isClient: span.kind === SpanKind.CLIENT,
+    entrypointType: 2, // internal
   };
 }
 
