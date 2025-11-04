@@ -23,6 +23,7 @@
   /* Muted and subtle text are derived from UI text with opacity */
   --text-muted: color-mix(in srgb, var(--ui-text) 70%, transparent);
   --text-subtle: color-mix(in srgb, var(--ui-text) 50%, transparent);
+  --runline-thickness: 4px;
   --accent-primary: #61afef;
   --accent-primary-rgb: 97 175 239;
   --accent-secondary: #98c379;
@@ -468,6 +469,24 @@ body {
   max-width: 60ch;
 }
 
+.trace-controls {
+  display: flex;
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
+.trace-control {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.trace-control input[type="checkbox"] {
+  cursor: pointer;
+}
+
 .trace-viewer {
   display: grid;
   gap: 1.5rem;
@@ -774,20 +793,39 @@ body {
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1);
 }
 
-.trace-span__gray-line-segments {
+.trace-span__runline-x-container {
   position: absolute;
   inset: 0;
   pointer-events: none;
   z-index: 1;
 }
 
-.trace-span__gray-line-segment {
+.trace-span__runline-x {
   position: absolute;
   top: calc(50% + 10px);
-  height: 4px;
-  background: rgba(200, 255, 255, 0.4);
+  height: var(--runline-thickness);
+  background: var(--text-strong);
   transform: translateY(-50%);
   border-radius: 10px;
+}
+
+.trace-span__runline-y-container {
+  position: absolute;
+  left: calc(1.75rem + var(--trace-span-service-width, 16rem) + 0.75rem);
+  right: 0;
+  top: 0;
+  bottom: -0.75rem;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.trace-span__runline-y {
+  position: absolute;
+  width: var(--runline-thickness);
+  background: var(--text-strong);
+  transform: translateX(-50%);
+  border-radius: 10px;
+  /* height is set dynamically by JS */
 }
 
 .trace-span__markers {
