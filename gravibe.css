@@ -687,6 +687,11 @@ body {
   color: var(--accent-quaternary);
 }
 
+.trace-span__component-name {
+  font-size: var(--font-size-xs);
+  opacity: 0.7;
+}
+
 .trace-span__service-namespace {
   opacity: 0.7;
 }

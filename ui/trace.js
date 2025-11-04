@@ -1453,6 +1453,9 @@ function renderSpanSummary(trace, node, timeWindow = { start: 0, end: 100 }, exp
   const serviceName = node.span.resource?.serviceName || "unknown-service";
   const namespace = node.span.resource?.serviceNamespace;
   const scope = node.span.instrumentationScope?.name;
+  
+  // Get component name from description if available
+  const componentName = node.description?.componentName;
 
   // Get service color for indicator (will compute for bar later too)
   const getServiceColor = (serviceName) => {
@@ -1474,6 +1477,7 @@ function renderSpanSummary(trace, node, timeWindow = { start: 0, end: 100 }, exp
   service.innerHTML = `
     <span class="trace-span__service-indicator" style="${serviceColorStyle}"></span>
     <span class="trace-span__service-name">${serviceName}</span>
+    ${componentName ? `<span class="trace-span__component-name">${componentName}</span>` : ""}
     ${namespace ? `<span class="trace-span__service-namespace">${namespace}</span>` : ""}
     ${scope ? `<span class="trace-span__scope">${scope}</span>` : ""}
   `;
