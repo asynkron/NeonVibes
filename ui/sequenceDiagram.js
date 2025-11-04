@@ -511,16 +511,16 @@ function renderAttributes(lines, node, trace, config) {
       attributes.push(`${key}: ${value}`);
     });
   }
-
-  if (attributes.length > 0) {
-    // Use actual newlines (\n) which escapeMermaid will convert to <br/>
-    // Mermaid doesn't support **bold** markdown, so use uppercase for emphasis
-    const noteText = `ATTRIBUTES\n${attributes.join("\n")}`;
-    const escapedNote = escapeMermaid(noteText);
-    lines.push(`    Note over ${componentId}: ${escapedNote}`);
-    console.log(`[renderAttributes] Added note over participant ID: ${componentId} (component.id lookup result)`);
-  }
-
+  /*
+    if (attributes.length > 0) {
+      // Use actual newlines (\n) which escapeMermaid will convert to <br/>
+      // Mermaid doesn't support **bold** markdown, so use uppercase for emphasis
+      const noteText = `ATTRIBUTES\n${attributes.join("\n")}`;
+      const escapedNote = escapeMermaid(noteText);
+      lines.push(`    Note over ${componentId}: ${escapedNote}`);
+      console.log(`[renderAttributes] Added note over participant ID: ${componentId} (component.id lookup result)`);
+    }
+ 
   // Special handling for HTTP URL
   const httpUrl = getSpanAttribute(node.span, "http.url");
   if (httpUrl) {
@@ -536,6 +536,7 @@ function renderAttributes(lines, node, trace, config) {
     const escapedSql = escapeMermaid(`STATEMENT\n${sql}`);
     lines.push(`    Note over ${componentId}: ${escapedSql}`);
   }
+     */
 }
 
 /**
@@ -577,6 +578,7 @@ function renderLogs(lines, node, startTime, endTime, trace, config) {
     }
   });
 
+  /*
   // Limit log length
   const logsText = logTexts.join("\n").substring(0, 600);
   if (logsText) {
@@ -587,6 +589,7 @@ function renderLogs(lines, node, startTime, endTime, trace, config) {
     lines.push(`    Note over ${componentId}: ${escapedLogs}`);
     console.log(`[renderLogs] Added logs note over ${componentId}`);
   }
+    */
 
   // Render error logs separately
   renderErrorLogs(lines, node, startTime, endTime, trace, config);
@@ -628,6 +631,7 @@ function renderErrorLogs(lines, node, startTime, endTime, trace, config) {
     }
   });
 
+  /*
   const errorsText = errorTexts.join("\n").substring(0, 600);
   if (errorsText) {
     const componentId = escapeMermaidId(getComponentId(node, trace));
@@ -639,6 +643,7 @@ function renderErrorLogs(lines, node, startTime, endTime, trace, config) {
     );
     console.log(`[renderErrorLogs] Added error note over ${componentId}`);
   }
+    */
 }
 
 /**
