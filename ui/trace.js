@@ -1634,10 +1634,34 @@ function renderSpanNode(trace, node, state, isLastChild = false, parentDepth = -
     childrenContainer = document.createElement("div");
     childrenContainer.className = "trace-span__children";
     childrenContainer.id = `trace-span-children-${node.span.spanId}`;
+    
+    // Build up wrappers incrementally: each wrapper contains the previous wrapper + the current child
+    let previousWrapper = null;
     node.children.forEach((child, index) => {
       const isLast = index === node.children.length - 1;
-      childrenContainer.append(renderSpanNode(trace, child, spanState, isLast, node.depth));
+      const childElement = renderSpanNode(trace, child, spanState, isLast, node.depth);
+      
+      // Create a wrapper for this child
+      const wrapper = document.createElement("div");
+      wrapper.className = "trace-span__child-wrapper";
+      
+      // If there's a previous wrapper, add it first (nested)
+      if (previousWrapper) {
+        wrapper.append(previousWrapper);
+      }
+      
+      // Add the current child
+      wrapper.append(childElement);
+      
+      // This wrapper becomes the previous wrapper for the next iteration
+      previousWrapper = wrapper;
+      
+      // Only append the final wrapper to the container (it contains all previous wrappers nested)
+      if (index === node.children.length - 1) {
+        childrenContainer.append(wrapper);
+      }
     });
+    
     body.append(childrenContainer);
     container.append(body);
   }
