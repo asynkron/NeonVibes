@@ -23,7 +23,7 @@
   /* Muted and subtle text are derived from UI text with opacity */
   --text-muted: color-mix(in srgb, var(--ui-text) 70%, transparent);
   --text-subtle: color-mix(in srgb, var(--ui-text) 50%, transparent);
-  --runline-thickness: 4px;
+  --runline-thickness: 1px;
   --accent-primary: #61afef;
   --accent-primary-rgb: 97 175 239;
   --accent-secondary: #98c379;
@@ -781,7 +781,7 @@ body {
   padding: 0 0.75rem;
   background: var(--service-color, rgba(97, 175, 239, 0.6));
   color: var(--text-strong);
-  border-radius: 3px;
+  /*border-radius: 3px;*/
   gap: 0.75rem;
   white-space: nowrap;
   z-index: 2;
@@ -802,11 +802,11 @@ body {
 
 .trace-span__runline-x {
   position: absolute;
-  top: calc(50% + 10px);
+  top: calc(50% + 11px);
   height: var(--runline-thickness);
   background: var(--text-strong);
   transform: translateY(-50%);
-  border-radius: 10px;
+  border-radius: 0;
 }
 
 .trace-span__runline-y-container {
