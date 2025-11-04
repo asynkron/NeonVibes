@@ -27,7 +27,7 @@ export const palette10 = {
         "surface-1": "#002b36",   // Base03
         "surface-2": "#073642",   // Base02
         "surface-3": "#0a2933",   // Darker base03
-        text: "#839496",          // Base0
+        text: "#a0a9a9",          // Base0 (lightened for better contrast)
         headers: "#fdf6e3",       // Base3
         highlight: "rgba(255, 255, 255, 0.05)",
         border: "#073642",
