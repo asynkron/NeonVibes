@@ -338,44 +338,45 @@ function renderChildren(lines, parent, trace, config) {
     const parentDesc = parent.description;
     const childDesc = child.description;
 
-    if (!parentDesc || !childDesc) {
-      renderChildren(lines, child, trace, config);
-      return;
-    }
-
+    // Get component IDs even if descriptions are missing (will return "unknown" if missing)
     const parentComponentId = getComponentId(parent, trace);
     const childComponentId = getComponentId(child, trace);
 
-    // Check if this is a client call (flatten) - render inline
-    if (childDesc.isClient) {
-      if (config.showAttributes) {
+    // Check if this is a recursion (same component calling itself)
+    const isRecursion = parentComponentId === childComponentId;
+
+    if (isRecursion) {
+      console.log(`[renderChildren] Self-call detected: ${parentComponentId} -> ${childComponentId} (showRecursion: ${config.showRecursion})`);
+    }
+
+    // Render call if NOT a recursion OR showRecursion is enabled
+    // Note: We render calls even if component IDs are "unknown" - they'll still be valid participants
+    const shouldRenderCall = !isRecursion || config.showRecursion;
+
+    if (shouldRenderCall) {
+      // Render call start
+      renderCallStart(lines, child, parent, trace, config);
+
+      // Render attributes if enabled
+      if (config.showAttributes && childDesc) {
         renderAttributes(lines, child, trace, config);
       }
+
+      // Render children recursively
       renderChildren(lines, child, trace, config);
+
+      // Render call end
+      renderCallEnd(lines, child, parent, trace, config);
     } else {
-      // Regular call - show as participant interaction
-      const isRecursion = parentComponentId === childComponentId;
-
-      if (isRecursion) {
-        console.log(`[renderChildren] Self-call detected: ${parentComponentId} -> ${childComponentId} (showRecursion: ${config.showRecursion})`);
-      }
-
-      // Only render call start/end if NOT a recursion OR if showRecursion is enabled
-      // This matches the C# implementation: hides self-calls by default
+      // Still render children even if call is skipped (for recursion or unknown components)
       if (!isRecursion || config.showRecursion) {
-        renderCallStart(lines, child, parent, trace, config);
+        // Only skip if it's a recursion and showRecursion is false
+        if (config.showAttributes && childDesc) {
+          renderAttributes(lines, child, trace, config);
+        }
+        renderChildren(lines, child, trace, config);
       } else {
         console.log(`[renderChildren] Skipping self-call rendering for ${parentComponentId} (showRecursion is false)`);
-      }
-
-      if (config.showAttributes) {
-        renderAttributes(lines, child, trace, config);
-      }
-
-      renderChildren(lines, child, trace, config);
-
-      if (!isRecursion || config.showRecursion) {
-        renderCallEnd(lines, child, parent, trace, config);
       }
     }
   });
