@@ -1636,7 +1636,13 @@ function renderSpanNode(trace, node, state, isLastChild = false, parentDepth = -
     childrenContainer.id = `trace-span-children-${node.span.spanId}`;
     
     // Build up wrappers incrementally: each wrapper contains the previous wrapper + the current child
+    // Each wrapper will have CSS variables set for runline-y positioning
     let previousWrapper = null;
+    
+    // Get parent bar bottom offset for CSS variables
+    const parentBar = summary.querySelector('.trace-span__bar');
+    const parentBarBottom = parentBar ? parentBar.getBoundingClientRect().bottom - summary.getBoundingClientRect().top : 0;
+    
     node.children.forEach((child, index) => {
       const isLast = index === node.children.length - 1;
       const childElement = renderSpanNode(trace, child, spanState, isLast, node.depth);
@@ -1645,6 +1651,9 @@ function renderSpanNode(trace, node, state, isLastChild = false, parentDepth = -
       const wrapper = document.createElement("div");
       wrapper.className = "trace-span__child-wrapper";
       
+      // Set CSS variables for parent bar bottom position
+      wrapper.style.setProperty("--parent-bar-bottom", `${parentBarBottom}px`);
+      
       // If there's a previous wrapper, add it first (nested)
       if (previousWrapper) {
         wrapper.append(previousWrapper);
@@ -1652,6 +1661,29 @@ function renderSpanNode(trace, node, state, isLastChild = false, parentDepth = -
       
       // Add the current child
       wrapper.append(childElement);
+      
+      // Set CSS variables for child bar positions and direct child height after child is added
+      // Use requestAnimationFrame to ensure DOM is laid out
+      requestAnimationFrame(() => {
+        const childSummary = childElement.querySelector('.trace-span__summary');
+        if (childSummary) {
+          const childBar = childSummary.querySelector('.trace-span__bar');
+          if (childBar) {
+            const childBarRect = childBar.getBoundingClientRect();
+            const wrapperRect = wrapper.getBoundingClientRect();
+            const childBarLeft = childBarRect.left - wrapperRect.left;
+            const childBarRight = childBarRect.right - wrapperRect.left;
+            wrapper.style.setProperty("--child-bar-left", `${childBarLeft}px`);
+            wrapper.style.setProperty("--child-bar-right", `${childBarRight}px`);
+            
+            // Set the height of just the direct child span (not including nested wrappers)
+            // This is the distance from wrapper top to the direct child span
+            const childElementRect = childElement.getBoundingClientRect();
+            const directChildHeight = childElementRect.top - wrapperRect.top;
+            wrapper.style.setProperty("--direct-child-height", `${directChildHeight}px`);
+          }
+        }
+      });
       
       // This wrapper becomes the previous wrapper for the next iteration
       previousWrapper = wrapper;

@@ -828,6 +828,43 @@ body {
   /* height is set dynamically by JS */
 }
 
+/* Use CSS to draw runline-y lines based on wrapper height */
+.trace-span__child-wrapper {
+  position: relative;
+}
+
+/* Draw lines from parent bar to child span using wrapper height */
+/* Target only wrappers that have a .trace-span as a direct child (not nested wrappers) */
+/* The wrapper's height should represent the distance from parent to its direct child span */
+.trace-span__child-wrapper:has(> .trace-span:first-child:not(:last-child))::before,
+.trace-span__child-wrapper:has(> .trace-span:last-child)::before,
+.trace-span__child-wrapper:has(> .trace-span:first-child:not(:last-child))::after,
+.trace-span__child-wrapper:has(> .trace-span:last-child)::after {
+  content: "";
+  position: absolute;
+  width: var(--runline-thickness);
+  background: var(--text-strong);
+  border-radius: 10px;
+  pointer-events: none;
+  z-index: 1;
+  top: calc(var(--parent-bar-bottom) - 2px);
+  /* Use the height of the first direct child .trace-span, not the wrapper's full height */
+  height: calc(var(--direct-child-height, 0px) - var(--parent-bar-bottom) + 2px + var(--span-line-height, 32px));
+  transform: translateX(-50%);
+}
+
+/* Line at start position - positioned at child bar's left edge */
+.trace-span__child-wrapper:has(> .trace-span:first-child:not(:last-child))::before,
+.trace-span__child-wrapper:has(> .trace-span:last-child)::before {
+  left: var(--child-bar-left);
+}
+
+/* Line at end position - positioned at child bar's right edge */
+.trace-span__child-wrapper:has(> .trace-span:first-child:not(:last-child))::after,
+.trace-span__child-wrapper:has(> .trace-span:last-child)::after {
+  left: var(--child-bar-right);
+}
+
 .trace-span__markers {
   position: absolute;
   inset: 0;
