@@ -23,6 +23,7 @@
   /* Muted and subtle text are derived from UI text with opacity */
   --text-muted: color-mix(in srgb, var(--ui-text) 70%, transparent);
   --text-subtle: color-mix(in srgb, var(--ui-text) 50%, transparent);
+  --runline-thickness: 4px;
   --accent-primary: #61afef;
   --accent-primary-rgb: 97 175 239;
   --accent-secondary: #98c379;
@@ -468,6 +469,24 @@ body {
   max-width: 60ch;
 }
 
+.trace-controls {
+  display: flex;
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
+.trace-control {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.trace-control input[type="checkbox"] {
+  cursor: pointer;
+}
+
 .trace-viewer {
   display: grid;
   gap: 1.5rem;
@@ -784,7 +803,7 @@ body {
 .trace-span__runline-x {
   position: absolute;
   top: calc(50% + 10px);
-  height: 4px;
+  height: var(--runline-thickness);
   background: var(--text-strong);
   transform: translateY(-50%);
   border-radius: 10px;
@@ -802,7 +821,7 @@ body {
 
 .trace-span__runline-y {
   position: absolute;
-  width: 4px;
+  width: var(--runline-thickness);
   background: var(--text-strong);
   transform: translateX(-50%);
   border-radius: 10px;

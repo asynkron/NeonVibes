@@ -1268,6 +1268,7 @@ function updateRunlineYHeights(parentSummary) {
 
   lines.forEach((line) => {
     const childSpanId = line.dataset.childSpanId;
+    const position = line.dataset.position; // "start" or "end"
     if (!childSpanId) {
       line.style.display = 'none';
       return;
@@ -1296,7 +1297,7 @@ function updateRunlineYHeights(parentSummary) {
       return;
     }
 
-    // Get child bar's X position (left edge of the bar)
+    // Get child bar's position
     const childBarRect = childBar.getBoundingClientRect();
 
     // Check if child bar is visible (has valid dimensions)
@@ -1305,8 +1306,15 @@ function updateRunlineYHeights(parentSummary) {
       return;
     }
 
-    // Calculate X position relative to timeline area (left edge of tree lines container)
-    const xPosition = childBarRect.left - timelineAreaRect.left;
+    // Calculate X position based on start or end of child bar
+    let xPosition;
+    if (position === "end") {
+      // Right edge of the bar
+      xPosition = childBarRect.right - timelineAreaRect.left;
+    } else {
+      // Left edge of the bar (start)
+      xPosition = childBarRect.left - timelineAreaRect.left;
+    }
 
     // Distance from parent summary top to child span top
     const totalDistance = calculateChildVerticalOffset(parentSummary, childSpanId);
@@ -1388,21 +1396,36 @@ function renderRunlineY(node, trace, timeWindow, expandedChildren = new Set()) {
     // Calculate position relative to visible parent span (0-100% of parent span width)
     const positionPercentWithinParent = ((visibleChildStart - visibleParentStart) / visibleParentDuration) * 100;
 
-    // Only create line if child start is within visible parent span
+    // Create line at start position if child start is within visible parent span
     if (positionPercentWithinParent >= 0 && positionPercentWithinParent <= 100) {
-      // Create line - X position will be set based on actual child DOM position after children are rendered
-      const line = document.createElement("div");
-      line.className = "trace-span__runline-y";
-      line.dataset.childSpanId = child.span.spanId;
-      line.style.display = 'none'; // Hidden until height and position are set
-      container.append(line);
+      // Create line at start - X position will be set based on actual child DOM position after children are rendered
+      const lineStart = document.createElement("div");
+      lineStart.className = "trace-span__runline-y";
+      lineStart.dataset.childSpanId = child.span.spanId;
+      lineStart.dataset.position = "start";
+      lineStart.style.display = 'none'; // Hidden until height and position are set
+      container.append(lineStart);
+    }
+
+    // Calculate position for end of child span
+    const positionPercentEndWithinParent = ((visibleChildEnd - visibleParentStart) / visibleParentDuration) * 100;
+
+    // Create line at end position if child end is within visible parent span
+    if (positionPercentEndWithinParent >= 0 && positionPercentEndWithinParent <= 100) {
+      // Create line at end - X position will be set based on actual child DOM position after children are rendered
+      const lineEnd = document.createElement("div");
+      lineEnd.className = "trace-span__runline-y";
+      lineEnd.dataset.childSpanId = child.span.spanId;
+      lineEnd.dataset.position = "end";
+      lineEnd.style.display = 'none'; // Hidden until height and position are set
+      container.append(lineEnd);
     }
   });
 
   return container.childElementCount > 0 ? container : null;
 }
 
-function renderSpanSummary(trace, node, timeWindow = { start: 0, end: 100 }, expandedChildren = new Set()) {
+function renderSpanSummary(trace, node, timeWindow = { start: 0, end: 100 }, expandedChildren = new Set(), showRunlineX = true, showRunlineY = true) {
   const summary = document.createElement("div");
   summary.className = "trace-span__summary";
   summary.dataset.depth = String(node.depth);
@@ -1516,10 +1539,12 @@ function renderSpanSummary(trace, node, timeWindow = { start: 0, end: 100 }, exp
     bar.append(markers);
   }
 
-  // Add gray line segments that show parent span duration, interrupted by child spans
-  const runlineX = renderRunlineX(node, trace, timeWindow);
-  if (runlineX) {
-    bar.append(runlineX);
+  // Add runline-x elements that show parent span duration, interrupted by child spans
+  if (showRunlineX) {
+    const runlineX = renderRunlineX(node, trace, timeWindow);
+    if (runlineX) {
+      bar.append(runlineX);
+    }
   }
 
   timeline.append(bar);
@@ -1528,9 +1553,11 @@ function renderSpanSummary(trace, node, timeWindow = { start: 0, end: 100 }, exp
 
   // Add runline-y elements connecting parent to children in the timeline area
   // Position on summary so they can extend beyond the timeline (which has overflow: hidden)
-  const runlineY = renderRunlineY(node, trace, timeWindow, expandedChildren);
-  if (runlineY) {
-    summary.append(runlineY);
+  if (showRunlineY) {
+    const runlineY = renderRunlineY(node, trace, timeWindow, expandedChildren);
+    if (runlineY) {
+      summary.append(runlineY);
+    }
   }
 
   return { summary, expander, service, timeline };
@@ -1584,7 +1611,9 @@ function renderSpanNode(trace, node, state, isLastChild = false, parentDepth = -
     trace,
     node,
     timeWindow,
-    spanState.expandedChildren
+    spanState.expandedChildren,
+    state?.showRunlineX !== false,
+    state?.showRunlineY !== false
   );
   container.append(summary);
 
@@ -1755,6 +1784,8 @@ function createTraceViewState(trace) {
     initializedChildren: false,
     timeWindowStart: 0, // Percentage of trace (0-100)
     timeWindowEnd: 100, // Percentage of trace (0-100)
+    showRunlineX: true, // Show horizontal runlines inside spans
+    showRunlineY: false, // Show vertical runlines connecting parent to child
   };
   ensureChildrenExpanded(trace, state);
   return state;
@@ -1893,6 +1924,38 @@ export function renderTrace(host, trace, state) {
     trace.startTimeUnixNano
   )} – ${formatTimestamp(trace.endTimeUnixNano)}`;
   header.append(meta);
+
+  // Add runline toggles
+  const controls = document.createElement("div");
+  controls.className = "trace-controls";
+
+  const runlineXLabel = document.createElement("label");
+  runlineXLabel.className = "trace-control";
+  const runlineXCheckbox = document.createElement("input");
+  runlineXCheckbox.type = "checkbox";
+  runlineXCheckbox.checked = viewState.showRunlineX !== false;
+  runlineXCheckbox.addEventListener("change", (e) => {
+    viewState.showRunlineX = e.target.checked;
+    renderTrace(host, trace, viewState);
+  });
+  runlineXLabel.append(runlineXCheckbox);
+  runlineXLabel.append(document.createTextNode(" Runline X"));
+
+  const runlineYLabel = document.createElement("label");
+  runlineYLabel.className = "trace-control";
+  const runlineYCheckbox = document.createElement("input");
+  runlineYCheckbox.type = "checkbox";
+  runlineYCheckbox.checked = viewState.showRunlineY !== false;
+  runlineYCheckbox.addEventListener("change", (e) => {
+    viewState.showRunlineY = e.target.checked;
+    renderTrace(host, trace, viewState);
+  });
+  runlineYLabel.append(runlineYCheckbox);
+  runlineYLabel.append(document.createTextNode(" Runline Y"));
+
+  controls.append(runlineXLabel);
+  controls.append(runlineYLabel);
+  header.append(controls);
 
   host.append(header);
 
