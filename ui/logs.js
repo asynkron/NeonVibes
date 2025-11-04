@@ -103,33 +103,36 @@ export function normalizeAnyValue(input) {
     return input;
   }
 
-  if (Object.prototype.hasOwnProperty.call(input, "string_value")) {
-    return { kind: LogAnyValueKind.STRING, value: input.string_value ?? "" };
+  // Support both protobuf snake_case (string_value) and JSON camelCase (stringValue) formats
+  if (Object.prototype.hasOwnProperty.call(input, "string_value") || Object.prototype.hasOwnProperty.call(input, "stringValue")) {
+    return { kind: LogAnyValueKind.STRING, value: input.string_value ?? input.stringValue ?? "" };
   }
-  if (Object.prototype.hasOwnProperty.call(input, "bool_value")) {
-    return { kind: LogAnyValueKind.BOOLEAN, value: Boolean(input.bool_value) };
+  if (Object.prototype.hasOwnProperty.call(input, "bool_value") || Object.prototype.hasOwnProperty.call(input, "boolValue")) {
+    return { kind: LogAnyValueKind.BOOLEAN, value: Boolean(input.bool_value ?? input.boolValue) };
   }
-  if (Object.prototype.hasOwnProperty.call(input, "int_value")) {
-    return { kind: LogAnyValueKind.INT, value: Number(input.int_value) };
+  if (Object.prototype.hasOwnProperty.call(input, "int_value") || Object.prototype.hasOwnProperty.call(input, "intValue")) {
+    return { kind: LogAnyValueKind.INT, value: Number(input.int_value ?? input.intValue) };
   }
-  if (Object.prototype.hasOwnProperty.call(input, "double_value")) {
-    return { kind: LogAnyValueKind.DOUBLE, value: Number(input.double_value) };
+  if (Object.prototype.hasOwnProperty.call(input, "double_value") || Object.prototype.hasOwnProperty.call(input, "doubleValue")) {
+    return { kind: LogAnyValueKind.DOUBLE, value: Number(input.double_value ?? input.doubleValue) };
   }
-  if (Object.prototype.hasOwnProperty.call(input, "bytes_value")) {
-    return { kind: LogAnyValueKind.BYTES, value: asUint8Array(input.bytes_value) };
+  if (Object.prototype.hasOwnProperty.call(input, "bytes_value") || Object.prototype.hasOwnProperty.call(input, "bytesValue")) {
+    return { kind: LogAnyValueKind.BYTES, value: asUint8Array(input.bytes_value ?? input.bytesValue) };
   }
-  if (Object.prototype.hasOwnProperty.call(input, "array_value")) {
-    const rawValues = Array.isArray(input.array_value?.values)
-      ? input.array_value.values
+  if (Object.prototype.hasOwnProperty.call(input, "array_value") || Object.prototype.hasOwnProperty.call(input, "arrayValue")) {
+    const arrayData = input.array_value ?? input.arrayValue;
+    const rawValues = Array.isArray(arrayData?.values)
+      ? arrayData.values
       : [];
     return {
       kind: LogAnyValueKind.ARRAY,
       value: rawValues.map((item) => normalizeAnyValue(item)),
     };
   }
-  if (Object.prototype.hasOwnProperty.call(input, "kvlist_value")) {
-    const rawList = Array.isArray(input.kvlist_value?.values)
-      ? input.kvlist_value.values
+  if (Object.prototype.hasOwnProperty.call(input, "kvlist_value") || Object.prototype.hasOwnProperty.call(input, "kvlistValue")) {
+    const kvlistData = input.kvlist_value ?? input.kvlistValue;
+    const rawList = Array.isArray(kvlistData?.values)
+      ? kvlistData.values
       : [];
     return {
       kind: LogAnyValueKind.KVLIST,
@@ -1144,8 +1147,10 @@ function generateLogsForSpan(span) {
 /**
  * Creates virtual log entries for a span (span start, span end, events).
  * These entries are added to the log array so they can be filtered by span ID.
+ * @param {import("./trace.js").TraceSpan} span - The span to create virtual logs for
+ * @returns {LogRow[]} Array of virtual log entries
  */
-function createVirtualSpanLogs(span) {
+export function createVirtualSpanLogs(span) {
   const virtualLogs = [];
 
   // Convert the span start to a log row format

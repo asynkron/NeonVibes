@@ -2144,23 +2144,24 @@ function createSplitter(container) {
   return splitter;
 }
 
-export function initTraceViewer(host, spans) {
+export function initTraceViewer(host, spans, logRows = null) {
   console.log("[initTraceViewer] Called, host:", host);
   if (!host) {
     console.log("[initTraceViewer] No host, returning empty functions");
     return { render: () => { }, update: () => { } };
   }
 
-  // Get log rows which should already include:
-  // - Regular logs (from generateLogsForSpan)
+  // Use provided log rows, or get sample log rows if not provided
+  // Log rows should include:
+  // - Regular logs (from OTel data or generateLogsForSpan)
   // - Virtual logs: span start, events as logs, span end (from appendLogsFromSpans/createVirtualSpanLogs)
   // buildTraceModel will merge these into span nodes and ensure virtual logs are present
-  const logRows = getSampleLogRows();
+  const finalLogRows = logRows || getSampleLogRows();
 
   // Build trace model with logs and events merged into span nodes during build
   // This performs the same lookup that the trace component used to do during rendering,
   // but now it happens once during build instead of repeatedly during render
-  const trace = buildTraceModel(spans, logRows);
+  const trace = buildTraceModel(spans, finalLogRows);
   let viewState = renderTrace(host, trace);
   let previewComponent = viewState.preview; // Store preview reference
   console.log("[initTraceViewer] Trace viewer initialized, previewComponent:", previewComponent);

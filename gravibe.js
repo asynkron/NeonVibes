@@ -1360,9 +1360,37 @@ async function initGravibe() {
   const logConsoleHost = document.querySelector('[data-component="logConsole"]');
   const traceHost = document.querySelector('[data-component="traceViewer"]');
   
-  // Always ensure logs are generated from spans first, before initializing either component
-  // This ensures both logConsole and traceViewer see the complete log list
-  const allLogRows = await appendLogsFromSpans(sampleTraceSpans);
+  // Load sample1.json, fall back to sample data if not available
+  let spans = sampleTraceSpans;
+  let logs = sampleLogRows;
+  
+  try {
+    const response = await fetch("./sample1.json");
+    if (response.ok) {
+      const otelData = await response.json();
+      const { parseOtelData } = await import("./ui/otelParser.js");
+      const { createVirtualSpanLogs } = await import("./ui/logs.js");
+      const parsed = parseOtelData(otelData);
+      spans = parsed.spans;
+      logs = parsed.logs;
+      
+      // Add virtual log entries (span start, events, span end) for OTel spans
+      const virtualLogs = spans.flatMap(span => createVirtualSpanLogs(span));
+      logs = [...logs, ...virtualLogs];
+      
+      console.log("[gravibe.js initGravibe] Loaded sample1.json:", spans.length, "spans,", logs.length, "logs");
+    } else {
+      console.log("[gravibe.js initGravibe] sample1.json not found (status:", response.status, "), using sample data");
+      // Fall back to sample data
+      const allLogRows = await appendLogsFromSpans(sampleTraceSpans);
+      logs = allLogRows;
+    }
+  } catch (error) {
+    console.log("[gravibe.js initGravibe] Failed to load sample1.json, using sample data:", error);
+    // Fall back to sample data
+    const allLogRows = await appendLogsFromSpans(sampleTraceSpans);
+    logs = allLogRows;
+  }
   
   // Ensure sampleLogRows module is loaded in trace.js before initializing trace viewer
   // This ensures getSampleLogRows() can access the logs when rendering spans
@@ -1372,12 +1400,12 @@ async function initGravibe() {
   }
   
   if (logConsoleHost) {
-    const rerenderLogConsole = initLogConsole(logConsoleHost, allLogRows);
+    const rerenderLogConsole = initLogConsole(logConsoleHost, logs);
     componentRegistry.add(rerenderLogConsole);
   }
 
   if (traceHost) {
-    const rerenderTrace = initTraceViewer(traceHost, sampleTraceSpans);
+    const rerenderTrace = initTraceViewer(traceHost, spans, logs);
     console.log("[gravibe.js initGravibe] Trace viewer initialized, component:", rerenderTrace);
     console.log("[gravibe.js initGravibe] Component has update method:", typeof rerenderTrace?.update === "function");
     componentRegistry.add(rerenderTrace);
@@ -1386,7 +1414,7 @@ async function initGravibe() {
   const sequenceDiagramHost = document.querySelector('[data-component="sequenceDiagram"]');
   if (sequenceDiagramHost) {
     const { initSequenceDiagram } = await import("./ui/sequenceDiagram.js");
-    const rerenderSequence = initSequenceDiagram(sequenceDiagramHost, sampleTraceSpans);
+    const rerenderSequence = initSequenceDiagram(sequenceDiagramHost, spans);
     console.log("[gravibe.js initGravibe] Sequence diagram initialized, component:", rerenderSequence);
     componentRegistry.add(rerenderSequence);
   }
