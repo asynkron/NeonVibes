@@ -1321,9 +1321,9 @@ function updateRunlineYHeights(parentSummary) {
 
     if (totalDistance !== null && totalDistance > barBottomOffset && !isNaN(xPosition) && xPosition >= 0) {
       // Line height = total distance minus the offset to where line starts (bottom of bar) + one span-line height
-      const lineHeight = totalDistance - barBottomOffset + spanLineHeight;
-      // Move up by 4px
-      line.style.top = `${barBottomOffset - 4}px`;
+      const lineHeight = totalDistance - barBottomOffset + spanLineHeight - 4;
+      // Move up by 2px
+      line.style.top = `${barBottomOffset - 1}px`;
       line.style.height = `${lineHeight}px`;
       // Set X position based on child's actual screen position, adjusted 8px to the right
       // Since the line uses transform: translateX(-50%), the left position is where the center should be
