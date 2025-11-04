@@ -1234,7 +1234,7 @@ function calculateChildVerticalOffset(parentSummary, childSpanId) {
 }
 
 /**
- * Updates the heights of timeline tree lines by measuring actual DOM distance between parent summary and child span.
+ * Updates the heights and X positions of timeline tree lines by measuring actual DOM positions.
  * @param {HTMLElement} parentSummary - The parent summary element
  */
 function updateTimelineTreeLineHeights(parentSummary) {
@@ -1243,8 +1243,15 @@ function updateTimelineTreeLineHeights(parentSummary) {
     return;
   }
 
-  // Get parent summary position
+  // Get parent summary and container positions
   const parentSummaryRect = parentSummary.getBoundingClientRect();
+  const parentContainer = parentSummary.closest('.trace-span');
+  if (!parentContainer) {
+    return;
+  }
+
+  // Get timeline area position (where the tree lines container is positioned)
+  const timelineAreaRect = treeLinesContainer.getBoundingClientRect();
 
   // Calculate offset from top of summary to bottom of timeline bar
   const parentBar = parentSummary.querySelector('.trace-span__bar');
@@ -1256,20 +1263,66 @@ function updateTimelineTreeLineHeights(parentSummary) {
 
   const lines = treeLinesContainer.querySelectorAll('.trace-span__timeline-tree-line');
 
+  // One span-line height = 32px (2rem)
+  const spanLineHeight = 32;
+
   lines.forEach((line) => {
     const childSpanId = line.dataset.childSpanId;
-    if (childSpanId) {
-      // Distance from parent summary top to child span top
-      const totalDistance = calculateChildVerticalOffset(parentSummary, childSpanId);
-      if (totalDistance !== null && totalDistance > barBottomOffset) {
-        // Line height = total distance minus the offset to where line starts (bottom of bar)
-        const lineHeight = totalDistance - barBottomOffset;
-        line.style.top = `${barBottomOffset}px`;
-        line.style.height = `${lineHeight}px`;
-        line.style.display = 'block';
-      } else {
-        line.style.display = 'none';
-      }
+    if (!childSpanId) {
+      line.style.display = 'none';
+      return;
+    }
+
+    // Find child span element
+    const childSpan = parentContainer.querySelector(`[data-span-id="${childSpanId}"]`);
+    if (!childSpan) {
+      line.style.display = 'none';
+      return;
+    }
+
+    // Check if child is visible (not hidden)
+    // Note: getBoundingClientRect() will return (0,0) for hidden elements, so we check that later
+
+    // Find child span's bar element (the actual visual element in the timeline)
+    const childSummary = childSpan.querySelector('.trace-span__summary');
+    if (!childSummary) {
+      line.style.display = 'none';
+      return;
+    }
+
+    const childBar = childSummary.querySelector('.trace-span__bar');
+    if (!childBar) {
+      line.style.display = 'none';
+      return;
+    }
+
+    // Get child bar's X position (left edge of the bar)
+    const childBarRect = childBar.getBoundingClientRect();
+
+    // Check if child bar is visible (has valid dimensions)
+    if (childBarRect.width === 0 || childBarRect.height === 0) {
+      line.style.display = 'none';
+      return;
+    }
+
+    // Calculate X position relative to timeline area (left edge of tree lines container)
+    const xPosition = childBarRect.left - timelineAreaRect.left;
+
+    // Distance from parent summary top to child span top
+    const totalDistance = calculateChildVerticalOffset(parentSummary, childSpanId);
+
+    if (totalDistance !== null && totalDistance > barBottomOffset && !isNaN(xPosition) && xPosition >= 0) {
+      // Line height = total distance minus the offset to where line starts (bottom of bar) + one span-line height
+      const lineHeight = totalDistance - barBottomOffset + spanLineHeight;
+      // Move up by 4px
+      line.style.top = `${barBottomOffset - 4}px`;
+      line.style.height = `${lineHeight}px`;
+      // Set X position based on child's actual screen position, adjusted 8px to the right
+      // Since the line uses transform: translateX(-50%), the left position is where the center should be
+      line.style.left = `${xPosition}px`;
+      line.style.display = 'block';
+    } else {
+      line.style.display = 'none';
     }
   });
 }
@@ -1337,15 +1390,11 @@ function renderTimelineTreeLines(node, trace, timeWindow, expandedChildren = new
 
     // Only create line if child start is within visible parent span
     if (positionPercentWithinParent >= 0 && positionPercentWithinParent <= 100) {
-      // Calculate absolute position within timeline area
-      const absolutePosition = parentOffsets.startPercent + (positionPercentWithinParent * parentOffsets.widthPercent / 100);
-
-      // Create line - height and top position will be set after children are rendered
+      // Create line - X position will be set based on actual child DOM position after children are rendered
       const line = document.createElement("div");
       line.className = "trace-span__timeline-tree-line";
       line.dataset.childSpanId = child.span.spanId;
-      line.style.left = `${absolutePosition}%`;
-      line.style.display = 'none'; // Hidden until height is set
+      line.style.display = 'none'; // Hidden until height and position are set
       container.append(line);
     }
   });

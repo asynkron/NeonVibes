@@ -803,8 +803,10 @@ body {
 .trace-span__timeline-tree-line {
   position: absolute;
   width: 2px;
-  background: var(--ui-border);
+  background: rgba(200, 255, 255, 0.4);
   transform: translateX(-50%);
+  border-radius: 10px;
+  /* height is set dynamically by JS */
 }
 
 .trace-span__markers {
