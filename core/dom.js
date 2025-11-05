@@ -11,6 +11,8 @@
  * @returns {HTMLElement} Created element
  * @example
  * h('div', { className: 'foo', id: 'bar' }, 'Hello', h('span', {}, 'World'))
+ * h('button', { type: 'button', disabled: true, textContent: 'Click me' })
+ * h('div', { hidden: false, dataset: { id: '123' } })
  */
 export function h(tag, props = {}, ...children) {
   const el = document.createElement(tag);
@@ -25,7 +27,14 @@ export function h(tag, props = {}, ...children) {
       props[key].forEach(cls => el.classList.add(cls));
     } else if (key.startsWith('aria-') || key.startsWith('data-')) {
       el.setAttribute(key, props[key]);
+    } else if (key === 'hidden' && typeof props[key] === 'boolean') {
+      el.hidden = props[key];
+    } else if (key === 'textContent' && typeof props[key] === 'string') {
+      el.textContent = props[key];
+    } else if (key === 'innerHTML' && typeof props[key] === 'string') {
+      el.innerHTML = props[key];
     } else if (key !== 'attrs') {
+      // Set other properties directly (disabled, type, etc.)
       el[key] = props[key];
     }
   });
@@ -33,6 +42,11 @@ export function h(tag, props = {}, ...children) {
   // Set additional attributes if provided
   if (props.attrs) {
     setAttrs(el, props.attrs);
+  }
+  
+  // If textContent or innerHTML was set in props, don't append children
+  if (props.textContent || props.innerHTML) {
+    return el;
   }
   
   // Append children
@@ -48,6 +62,26 @@ export function h(tag, props = {}, ...children) {
   });
   
   return el;
+}
+
+/**
+ * Creates a DOM element (wrapper for document.createElement with h() compatibility).
+ * This provides a drop-in replacement for document.createElement that uses h() internally.
+ * @param {string} tag - HTML tag name
+ * @param {Object} [props] - Element properties (optional, for h() compatibility)
+ * @param {...(Node|string)} [children] - Child nodes (optional)
+ * @returns {HTMLElement} Created element
+ * @example
+ * createElement('div', { className: 'foo' }) // Uses h() internally
+ * createElement('div') // Simple wrapper
+ */
+export function createElement(tag, props = {}, ...children) {
+  // If only tag is provided, use document.createElement for simple cases
+  if (Object.keys(props).length === 0 && children.length === 0) {
+    return document.createElement(tag);
+  }
+  // Otherwise use h() for full feature support
+  return h(tag, props, ...children);
 }
 
 /**

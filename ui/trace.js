@@ -13,6 +13,11 @@ import { computeServiceColorRgb } from "../core/colorService.js";
 import { ComponentKind, extractSpanDescription, createComponentKey, normalizeServiceAndGroup } from "./metaModel.js";
 import { renderTracePreview } from "./tracePreview.js";
 import { h, setStyles, setAttrs } from "../core/dom.js";
+import { createViewState, pruneInvalidState, ensureChildrenExpanded, pruneDescendantState as pruneDescendantStateFromManager } from "../core/stateManager.js";
+import { renderSpanSummary } from "./components/spanSummary.js";
+import { renderSpanLogs } from "./components/spanLogs.js";
+import { renderSpanNode } from "./components/spanNode.js";
+import { renderTraceHeader } from "./components/traceHeader.js";
 
 // Lazy import for sampleLogRows to avoid circular dependency with sampleData.js
 // sampleData.js imports from trace.js, so we can't import it at module level
@@ -164,7 +169,7 @@ export function createTraceEvent({ name, timeUnixNano, attributes = [] }) {
   };
 }
 
-function toNumberTimestamp(value) {
+export function toNumberTimestamp(value) {
   if (typeof value === "number") {
     return value;
   }
@@ -201,53 +206,13 @@ function buildServiceNameMapping(spanNodes) {
 
 
 
-/**
- * Builds a hierarchical trace model so spans become aware of their children
- * without mutating the original span definitions.
- * 
- * During build, this function:
- * - Extracts span descriptions to build groups and components
- * - Merges logs and events into span nodes (same lookup as trace component used to do)
- * - Creates virtual logs for span start, events (as logs), and span end if not already present
- * - Builds the hierarchical tree structure
- * 
- * @param {TraceSpan[]} spans
- * @param {LogRow[]=} logRows - Optional array of log rows to merge into span nodes.
- *   Should include regular logs + virtual logs (span start, events as logs, span end).
- *   If virtual logs are missing, they will be created automatically during build.
- * @returns {TraceModel}
- */
-export function buildTraceModel(spans, logRows = null) {
-  if (!Array.isArray(spans) || spans.length === 0) {
-    return {
-      traceId: "",
-      startTimeUnixNano: 0,
-      endTimeUnixNano: 0,
-      durationNano: 0,
-      spanCount: 0,
-      roots: [],
-      serviceNameMapping: new Map(),
-      groups: new Map(),
-      components: new Map(),
-    };
-  }
-
-  const spanNodes = new Map();
-  let minStart = Number.POSITIVE_INFINITY;
-  let maxEnd = Number.NEGATIVE_INFINITY;
-  let traceId = spans[0].traceId;
-
-  // Maps to collect unique groups and components
-  const groups = new Map();
-  const components = new Map();
-
   /**
    * Creates virtual log entries for a span (span start, events as logs, span end).
    * These virtual logs represent span lifecycle and events in log format.
    * @param {TraceSpan} span
    * @returns {LogRow[]}
    */
-  const createVirtualSpanLogs = (span) => {
+function createVirtualSpanLogs(span) {
     const virtualLogs = [];
 
     // Convert the span start to a log row format
@@ -311,11 +276,19 @@ export function buildTraceModel(spans, logRows = null) {
     }
 
     return virtualLogs;
-  };
+}
 
-  // Build a map of spanId -> log rows for efficient lookup
-  // This includes regular logs AND virtual logs (span start, events as logs, span end)
+/**
+ * Builds a map of spanId -> log rows for efficient lookup.
+ * This includes regular logs AND virtual logs (span start, events as logs, span end).
+ * @param {TraceSpan[]} spans - Array of spans
+ * @param {LogRow[]=} logRows - Optional array of log rows
+ * @returns {Map<string, LogRow[]>} Map from span ID to log rows
+ */
+function buildLogsMap(spans, logRows = null) {
   const logsBySpanId = new Map();
+  
+  // Add regular logs from logRows
   if (Array.isArray(logRows)) {
     logRows.forEach((logRow) => {
       if (logRow.spanId) {
@@ -346,13 +319,19 @@ export function buildTraceModel(spans, logRows = null) {
     }
   });
 
-  spans.forEach((span) => {
-    const start = toNumberTimestamp(span.startTimeUnixNano);
-    const end = toNumberTimestamp(span.endTimeUnixNano);
-    minStart = Math.min(minStart, start);
-    maxEnd = Math.max(maxEnd, end);
-    traceId = span.traceId || traceId;
+  return logsBySpanId;
+}
 
+/**
+ * Extracts groups and components from spans.
+ * @param {TraceSpan[]} spans - Array of spans
+ * @returns {{groups: Map<string, Group>, components: Map<string, Component>}} Groups and components maps
+ */
+function buildGroupsAndComponents(spans) {
+  const groups = new Map();
+  const components = new Map();
+
+  spans.forEach((span) => {
     // Extract span description using extractors
     const serviceName = span.resource?.serviceName || "unknown-service";
     const description = extractSpanDescription(span, serviceName);
@@ -382,9 +361,27 @@ export function buildTraceModel(spans, logRows = null) {
         entrypointType: description.entrypointType || 2, // Default to internal (2)
       });
     }
+  });
+
+  return { groups, components };
+}
+
+/**
+ * Builds span nodes from spans and constructs the tree structure.
+ * @param {TraceSpan[]} spans - Array of spans
+ * @param {Map<string, LogRow[]>} logsBySpanId - Map from span ID to log rows
+ * @returns {{spanNodes: Map<string, TraceSpanNode>, roots: TraceSpanNode[]}} Span nodes map and root nodes
+ */
+function buildSpanNodes(spans, logsBySpanId) {
+  const spanNodes = new Map();
+
+  // Create span nodes from spans
+  spans.forEach((span) => {
+    // Extract span description using extractors
+    const serviceName = span.resource?.serviceName || "unknown-service";
+    const description = extractSpanDescription(span, serviceName);
 
     // Look up logs for this span (includes regular logs + virtual logs: span start, events as logs, span end)
-    // This is the same lookup that the trace component used to do during rendering
     const spanLogs = logsBySpanId.get(span.spanId) || [];
 
     // Get events from span (original events - also available as logs in spanLogs)
@@ -404,10 +401,8 @@ export function buildTraceModel(spans, logRows = null) {
     });
   });
 
-  const serviceNameMapping = buildServiceNameMapping(spanNodes);
-  console.log(serviceNameMapping);
+  // Build tree structure
   const roots = [];
-
   spanNodes.forEach((node) => {
     const parentId = node.span.parentSpanId;
     if (parentId && spanNodes.has(parentId)) {
@@ -419,6 +414,7 @@ export function buildTraceModel(spans, logRows = null) {
     }
   });
 
+  // Sort children by start time
   const sortChildren = (node) => {
     node.children.sort(
       (a, b) =>
@@ -434,6 +430,66 @@ export function buildTraceModel(spans, logRows = null) {
       toNumberTimestamp(b.span.startTimeUnixNano)
   );
   roots.forEach((root) => sortChildren(root));
+
+  return { spanNodes, roots };
+}
+
+/**
+ * Builds a hierarchical trace model so spans become aware of their children
+ * without mutating the original span definitions.
+ * 
+ * During build, this function:
+ * - Extracts span descriptions to build groups and components
+ * - Merges logs and events into span nodes (same lookup as trace component used to do)
+ * - Creates virtual logs for span start, events (as logs), and span end if not already present
+ * - Builds the hierarchical tree structure
+ * 
+ * @param {TraceSpan[]} spans
+ * @param {LogRow[]=} logRows - Optional array of log rows to merge into span nodes.
+ *   Should include regular logs + virtual logs (span start, events as logs, span end).
+ *   If virtual logs are missing, they will be created automatically during build.
+ * @returns {TraceModel}
+ */
+export function buildTraceModel(spans, logRows = null) {
+  if (!Array.isArray(spans) || spans.length === 0) {
+    return {
+      traceId: "",
+      startTimeUnixNano: 0,
+      endTimeUnixNano: 0,
+      durationNano: 0,
+      spanCount: 0,
+      roots: [],
+      serviceNameMapping: new Map(),
+      groups: new Map(),
+      components: new Map(),
+    };
+  }
+
+  // Build logs map (includes virtual logs)
+  const logsBySpanId = buildLogsMap(spans, logRows);
+
+  // Extract groups and components
+  const { groups, components } = buildGroupsAndComponents(spans);
+
+  // Build span nodes and tree structure
+  const { spanNodes, roots } = buildSpanNodes(spans, logsBySpanId);
+
+  // Calculate trace time bounds
+  let minStart = Number.POSITIVE_INFINITY;
+  let maxEnd = Number.NEGATIVE_INFINITY;
+  let traceId = spans[0].traceId;
+  
+  spans.forEach((span) => {
+    const start = toNumberTimestamp(span.startTimeUnixNano);
+    const end = toNumberTimestamp(span.endTimeUnixNano);
+    minStart = Math.min(minStart, start);
+    maxEnd = Math.max(maxEnd, end);
+    traceId = span.traceId || traceId;
+  });
+
+  // Build service name mapping
+  const serviceNameMapping = buildServiceNameMapping(spanNodes);
+  console.log(serviceNameMapping);
 
   const startTimeUnixNano = Number.isFinite(minStart) ? minStart : 0;
   const endTimeUnixNano = Number.isFinite(maxEnd) ? maxEnd : startTimeUnixNano;
@@ -545,21 +601,21 @@ function renderValidationBanner(host, validation) {
     return;
   }
 
-  const banner = document.createElement("section");
-  banner.className = "validation-banner";
+  const banner = h('section', { className: 'validation-banner' });
 
-  const title = document.createElement("h3");
-  title.className = "validation-banner__title";
-  title.textContent = hasErrors ? "Trace validation issues" : "Trace validation warnings";
+  const title = h('h3', {
+    className: 'validation-banner__title',
+    textContent: hasErrors ? "Trace validation issues" : "Trace validation warnings"
+  });
   banner.append(title);
 
-  const list = document.createElement("ul");
-  list.className = "validation-banner__list";
+  const list = h('ul', { className: 'validation-banner__list' });
   const entries = [...(validation.errors ?? []), ...(validation.warnings ?? [])];
   entries.forEach((issue) => {
-    const item = document.createElement("li");
-    item.className = `validation-banner__item validation-banner__item--${issue.level}`;
-    item.textContent = issue.message;
+    const item = h('li', {
+      className: `validation-banner__item validation-banner__item--${issue.level}`,
+      textContent: issue.message
+    });
     list.append(item);
   });
 
@@ -618,7 +674,7 @@ export function computeSpanOffsets(trace, span, timeWindow = { start: 0, end: 10
   };
 }
 
-function formatDurationNano(duration) {
+export function formatDurationNano(duration) {
   if (!Number.isFinite(duration) || duration < 0) {
     return "0 ns";
   }
@@ -634,7 +690,7 @@ function formatDurationNano(duration) {
   return `${duration.toFixed(0)} ns`;
 }
 
-function formatTimestamp(value) {
+export function formatTimestamp(value) {
   const date = new Date(toNumberTimestamp(value) / 1e6);
   if (Number.isNaN(date.getTime())) {
     return "";
@@ -651,23 +707,20 @@ function renderSpanEvents(events) {
   if (!events || events.length === 0) {
     return null;
   }
-  const wrapper = document.createElement("div");
-  wrapper.className = "trace-span-events";
+  const wrapper = h('div', { className: 'trace-span-events' });
 
-  const heading = document.createElement("h4");
-  heading.textContent = "Events";
+  const heading = h('h4', { textContent: 'Events' });
   wrapper.append(heading);
 
-  const list = document.createElement("ul");
-  list.className = "trace-span-events__list";
+  const list = h('ul', { className: 'trace-span-events__list' });
 
   events.forEach((event) => {
-    const item = document.createElement("li");
-    item.className = "trace-span-events__item";
+    const item = h('li', { className: 'trace-span-events__item' });
 
-    const title = document.createElement("div");
-    title.className = "trace-span-events__title";
-    title.textContent = `${formatTimestamp(event.timeUnixNano)} — ${event.name}`;
+    const title = h('div', {
+      className: 'trace-span-events__title',
+      textContent: `${formatTimestamp(event.timeUnixNano)} — ${event.name}`
+    });
     item.append(title);
 
     if (event.attributes?.length) {
@@ -684,8 +737,7 @@ function renderSpanEvents(events) {
 }
 
 function createMarkerTooltip(data) {
-  const tooltip = document.createElement("div");
-  tooltip.className = "trace-span__marker-tooltip";
+  const tooltip = h('div', { className: 'trace-span__marker-tooltip' });
 
   if (data.type === 'log') {
     const logRow = data.logRow;
@@ -715,7 +767,7 @@ function createMarkerTooltip(data) {
   return tooltip;
 }
 
-function renderSpanMarkers(node, trace, timeWindow = { start: 0, end: 100 }) {
+export function renderSpanMarkers(node, trace, timeWindow = { start: 0, end: 100 }) {
   // Collect all timestamps: logs and events with their data
   const markers = [];
   const span = node.span;
@@ -759,8 +811,7 @@ function renderSpanMarkers(node, trace, timeWindow = { start: 0, end: 100 }) {
     return null;
   }
 
-  const container = document.createElement("div");
-  container.className = "trace-span__markers";
+  const container = h('div', { className: 'trace-span__markers' });
 
   // Calculate the visible span window boundaries
   const totalDuration = trace.durationNano || Math.max(
@@ -798,15 +849,12 @@ function renderSpanMarkers(node, trace, timeWindow = { start: 0, end: 100 }) {
       ? ((markerTimestamp - visibleSpanStart) / visibleSpanDuration) * 100
       : 50; // Fallback to center if span has no visible duration
 
-    const markerElement = document.createElement("div");
-
     // For log markers, determine severity and apply color class
-    if (marker.type === 'log') {
-      const severityGroup = resolveSeverityGroup(marker.logRow);
-      markerElement.className = `trace-span__marker trace-span__marker--log trace-span__marker--severity-${severityGroup}`;
-    } else {
-      markerElement.className = `trace-span__marker trace-span__marker--${marker.type}`;
-    }
+    const markerClassName = marker.type === 'log'
+      ? `trace-span__marker trace-span__marker--log trace-span__marker--severity-${resolveSeverityGroup(marker.logRow)}`
+      : `trace-span__marker trace-span__marker--${marker.type}`;
+    
+    const markerElement = h('div', { className: markerClassName });
 
     markerElement.style.left = `${positionWithinVisibleSpan}%`;
 
@@ -949,108 +997,16 @@ function renderSpanMarkers(node, trace, timeWindow = { start: 0, end: 100 }) {
   return container.childElementCount > 0 ? container : null;
 }
 
-function renderSpanLogs(node) {
-  // Get logs from node (already merged during metamodel build)
-  const allLogs = node.logs || [];
+/**
+ * Creates a single log row element.
+ * @param {LogRow} logRow - The log row data
+ * @param {Set<string>} expandedLogIds - Set of expanded log IDs
+ * @returns {{element: HTMLElement, expander: HTMLElement, summary: HTMLElement, metaSection: HTMLElement}} Log row components
+ */
+// Log rendering moved to ui/components/spanLogs.js
 
-  if (allLogs.length === 0) {
-    return null;
-  }
-
-  // Sort all logs by time
-  const sortedLogs = [...allLogs].sort((a, b) => {
-    const timeA = typeof a.timeUnixNano === "bigint" ? Number(a.timeUnixNano) : a.timeUnixNano;
-    const timeB = typeof b.timeUnixNano === "bigint" ? Number(b.timeUnixNano) : b.timeUnixNano;
-    return timeA - timeB;
-  });
-
-  const logsSection = document.createElement("section");
-  logsSection.className = "trace-span-logs";
-
-  const logsList = document.createElement("div");
-  logsList.className = "trace-span-logs__list";
-
-  // Create a Set to track expanded log IDs
-  const expandedLogIds = new Set();
-
-  sortedLogs.forEach((logRow) => {
-    const severityGroup = resolveSeverityGroup(logRow);
-    const isOpen = expandedLogIds.has(logRow.id);
-    const logElement = h('div', {
-      className: `log-row log-row--severity-${severityGroup}${isOpen ? ' log-row--open' : ''}`,
-      dataset: { rowId: logRow.id }
-    });
-
-    const expander = h('button', {
-      type: 'button',
-      className: 'log-row__expander',
-      attrs: { 'aria-expanded': String(isOpen) }
-    });
-    const expanderWrapper = h('span', { className: 'log-row__expander-wrapper' }, expander);
-
-    const severity = h('span', { className: 'log-row-severity' },
-      abbreviateLogLevel(logRow.severityText ?? severityGroup)
-    );
-
-    const timestamp = h('time', {
-      className: 'log-row-timestamp',
-      dateTime: typeof logRow.timeUnixNano === "bigint"
-        ? new Date(Number(logRow.timeUnixNano / 1000000n)).toISOString()
-        : new Date((logRow.timeUnixNano ?? 0) / 1e6).toISOString()
-    }, formatNanoseconds(logRow.timeUnixNano));
-
-    const message = h('span', { className: 'log-row-message' }, buildTemplateFragment(logRow));
-
-    const summary = h('div', { className: 'log-row-summary' },
-      expanderWrapper, timestamp, severity, message
-    );
-
-    const metaSection = createMetaSection(logRow);
-    if (!isOpen) {
-      metaSection.style.display = 'none';
-    }
-
-    logElement.appendChild(summary);
-    logElement.appendChild(metaSection);
-
-    const toggleHandler = () => {
-      const wasOpen = expandedLogIds.has(logRow.id);
-      if (wasOpen) {
-        expandedLogIds.delete(logRow.id);
-        logElement.classList.remove('log-row--open');
-        metaSection.style.display = 'none';
-        setAttrs(expander, { 'aria-expanded': 'false' });
-      } else {
-        expandedLogIds.add(logRow.id);
-        logElement.classList.add('log-row--open');
-        metaSection.style.display = '';
-        setAttrs(expander, { 'aria-expanded': 'true' });
-      }
-    };
-
-    summary.addEventListener('click', (e) => {
-      // Don't toggle if clicking the expander button itself
-      if (e.target === expander || expander.contains(e.target)) {
-        return;
-      }
-      toggleHandler();
-    });
-
-    expander.addEventListener('click', (e) => {
-      e.stopPropagation();
-      toggleHandler();
-    });
-
-    logsList.append(logElement);
-  });
-
-  logsSection.append(logsList);
-  return logsSection;
-}
-
-function renderSpanDetails(node) {
-  const details = document.createElement("div");
-  details.className = "trace-span__details";
+export function renderSpanDetails(node) {
+  const details = h('div', { className: 'trace-span__details' });
 
   // Add logs section (logs already merged during metamodel build)
   const logsSection = renderSpanLogs(node);
@@ -1198,20 +1154,22 @@ function calculateVisibleSegments(node, trace, timeWindow) {
  * @param {Object} timeWindow - Time window { start: 0-100, end: 0-100 }
  * @returns {HTMLElement|null} Container with runline-x elements, or null if no segments
  */
-function renderRunlineX(node, trace, timeWindow) {
+export function renderRunlineX(node, trace, timeWindow) {
   const segments = calculateVisibleSegments(node, trace, timeWindow);
   if (segments.length === 0) {
     return null;
   }
 
-  const container = document.createElement("div");
-  container.className = "trace-span__runline-x-container";
+  const container = h('div', { className: 'trace-span__runline-x-container' });
 
   segments.forEach((segment) => {
-    const line = document.createElement("div");
-    line.className = "trace-span__runline-x";
-    line.style.left = `${segment.startPercent}%`;
-    line.style.width = `${segment.widthPercent}%`;
+    const line = h('div', {
+      className: 'trace-span__runline-x',
+      style: {
+        left: `${segment.startPercent}%`,
+        width: `${segment.widthPercent}%`
+      }
+    });
     container.append(line);
   });
 
@@ -1251,7 +1209,7 @@ function calculateChildVerticalOffset(parentSummary, childSpanId) {
  * Updates the heights and X positions of runline-y elements by measuring actual DOM positions.
  * @param {HTMLElement} parentSummary - The parent summary element
  */
-function updateRunlineYHeights(parentSummary) {
+export function updateRunlineYHeights(parentSummary) {
   const runlineYContainer = parentSummary.querySelector('.trace-span__runline-y-container');
   if (!runlineYContainer) {
     return;
@@ -1358,13 +1316,12 @@ function updateRunlineYHeights(parentSummary) {
  * @param {Set<string>} expandedChildren - Set of expanded child span IDs
  * @returns {HTMLElement|null} Container with runline-y elements, or null if no children
  */
-function renderRunlineY(node, trace, timeWindow, expandedChildren = new Set()) {
+export function renderRunlineY(node, trace, timeWindow, expandedChildren = new Set()) {
   if (!node.children || node.children.length === 0) {
     return null;
   }
 
-  const container = document.createElement("div");
-  container.className = "trace-span__runline-y-container";
+  const container = h('div', { className: 'trace-span__runline-y-container' });
 
   // Calculate parent span offsets to get the visible portion and position within timeline area
   const parentOffsets = computeSpanOffsets(trace, node.span, timeWindow);
@@ -1413,11 +1370,11 @@ function renderRunlineY(node, trace, timeWindow, expandedChildren = new Set()) {
     // Create line at start position if child start is within visible parent span
     if (positionPercentWithinParent >= 0 && positionPercentWithinParent <= 100) {
       // Create line at start - X position will be set based on actual child DOM position after children are rendered
-      const lineStart = document.createElement("div");
-      lineStart.className = "trace-span__runline-y";
-      lineStart.dataset.childSpanId = child.span.spanId;
-      lineStart.dataset.position = "start";
-      lineStart.style.display = 'none'; // Hidden until height and position are set
+      const lineStart = h('div', {
+        className: 'trace-span__runline-y',
+        dataset: { childSpanId: child.span.spanId, position: 'start' },
+        style: { display: 'none' } // Hidden until height and position are set
+      });
       container.append(lineStart);
     }
 
@@ -1427,11 +1384,11 @@ function renderRunlineY(node, trace, timeWindow, expandedChildren = new Set()) {
     // Create line at end position if child end is within visible parent span
     if (positionPercentEndWithinParent >= 0 && positionPercentEndWithinParent <= 100) {
       // Create line at end - X position will be set based on actual child DOM position after children are rendered
-      const lineEnd = document.createElement("div");
-      lineEnd.className = "trace-span__runline-y";
-      lineEnd.dataset.childSpanId = child.span.spanId;
-      lineEnd.dataset.position = "end";
-      lineEnd.style.display = 'none'; // Hidden until height and position are set
+      const lineEnd = h('div', {
+        className: 'trace-span__runline-y',
+        dataset: { childSpanId: child.span.spanId, position: 'end' },
+        style: { display: 'none' } // Hidden until height and position are set
+      });
       container.append(lineEnd);
     }
   });
@@ -1439,348 +1396,15 @@ function renderRunlineY(node, trace, timeWindow, expandedChildren = new Set()) {
   return container.childElementCount > 0 ? container : null;
 }
 
-function renderSpanSummary(trace, node, timeWindow = { start: 0, end: 100 }, expandedChildren = new Set(), showRunlineX = true, showRunlineY = true) {
-  const summary = document.createElement("div");
-  summary.className = "trace-span__summary";
-  summary.dataset.depth = String(node.depth);
-  summary.style.setProperty("--depth", String(node.depth));
+// Span summary rendering moved to ui/components/spanSummary.js
 
-  // Create wrapper for expander and service that can be indented
-  const leftSection = h('div', {
-    className: 'trace-span__left',
-    style: { paddingLeft: 'calc(var(--depth) * var(--trace-indent-width, 1rem))' }
-  });
+// Re-export pruneDescendantState from state manager for backward compatibility
+const pruneDescendantState = pruneDescendantStateFromManager;
 
-  const expander = h('button', {
-    type: 'button',
-    className: 'trace-span__expander',
-    attrs: {
-      'aria-label': node.children.length ? 'Toggle child spans' : 'No child spans'
-    },
-    disabled: !node.children.length
-  });
-  leftSection.append(expander);
+// Span node rendering moved to ui/components/spanNode.js
 
-  const serviceName = getColorKeyFromNode(node);
-  const componentName = node.description?.componentName;
-
-  // Use centralized color service
-  const serviceRgb = computeServiceColorRgb(serviceName, trace);
-  const indicatorStyle = serviceRgb
-    ? { backgroundColor: `rgba(${serviceRgb.r}, ${serviceRgb.g}, ${serviceRgb.b}, 0.6)` }
-    : {};
-
-  const service = h('button', {
-    type: 'button',
-    className: 'trace-span__service',
-    disabled: !node.children.length,
-    attrs: !node.children.length ? { 'aria-disabled': 'true' } : {}
-  }, h('div', { className: 'trace-span__service-row' },
-    h('span', { className: 'trace-span__service-indicator', style: indicatorStyle }),
-    h('span', { className: 'trace-span__service-name' }, serviceName),
-    h('span', { className: 'trace-span__component-name' }, componentName)
-  ));
-  leftSection.append(service);
-
-  summary.append(leftSection);
-
-  const timeline = document.createElement("button");
-  timeline.type = "button";
-  timeline.className = "trace-span__timeline";
-  timeline.setAttribute("aria-label", "Toggle span details");
-  const offsets = computeSpanOffsets(trace, node.span, timeWindow);
-  timeline.style.setProperty("--span-start", `${offsets.startPercent}%`);
-  timeline.style.setProperty("--span-width", `${offsets.widthPercent}%`);
-
-  // Timeline markers are added at trace-span-list level, not per timeline
-
-  const bar = document.createElement("div");
-  bar.className = "trace-span__bar";
-
-  // Hide the bar if span is fully outside the time window
-  if (offsets.widthPercent === 0) {
-    bar.style.display = "none";
-  }
-
-  // Use centralized color service for bar colors (already computed for service indicator)
-  const barRgb = serviceRgb;
-  if (barRgb) {
-    // Use rgba with 0.6 opacity for less intense colors
-    bar.style.setProperty("--service-color", `rgba(${barRgb.r}, ${barRgb.g}, ${barRgb.b}, 0.6)`);
-    bar.style.setProperty("--service-shadow", `0 0 18px rgba(${barRgb.r}, ${barRgb.g}, ${barRgb.b}, 0.25)`);
-  }
-
-  const name = document.createElement("span");
-  name.className = "trace-span__name";
-  name.textContent = node.span.name;
-  bar.append(name);
-
-  const duration = document.createElement("span");
-  duration.className = "trace-span__duration";
-  duration.textContent = formatDurationNano(
-    toNumberTimestamp(node.span.endTimeUnixNano) -
-    toNumberTimestamp(node.span.startTimeUnixNano)
-  );
-
-  bar.append(duration);
-
-  // Add markers for logs and events
-  const markers = renderSpanMarkers(node, trace, timeWindow);
-  if (markers) {
-    bar.append(markers);
-  }
-
-  // Add runline-x elements that show parent span duration, interrupted by child spans
-  if (showRunlineX) {
-    const runlineX = renderRunlineX(node, trace, timeWindow);
-    if (runlineX) {
-      bar.append(runlineX);
-    }
-  }
-
-  timeline.append(bar);
-
-  summary.append(timeline);
-
-  // Add runline-y elements connecting parent to children in the timeline area
-  // Position on summary so they can extend beyond the timeline (which has overflow: hidden)
-  if (showRunlineY) {
-    const runlineY = renderRunlineY(node, trace, timeWindow, expandedChildren);
-    if (runlineY) {
-      summary.append(runlineY);
-    }
-  }
-
-  return { summary, expander, service, timeline };
-}
-
-// Ensure collapsing a span clears state for all nested spans so we do not
-// accidentally reopen them on the next render.
-function pruneDescendantState(node, state) {
-  if (!state) {
-    return;
-  }
-  node.children.forEach((child) => {
-    state.expandedChildren.delete(child.span.spanId);
-    state.expandedAttributes.delete(child.span.spanId);
-    pruneDescendantState(child, state);
-  });
-}
-
-function renderSpanNode(trace, node, state, isLastChild = false, parentDepth = -1) {
-  const container = document.createElement("div");
-  container.className = "trace-span";
-  const hasChildren = node.children.length > 0;
-  if (!hasChildren) {
-    container.classList.add("trace-span--leaf");
-  }
-
-  // Set depth as CSS variable for tree line positioning
-  container.style.setProperty("--depth", node.depth);
-
-  // Mark if this is the last child for tree line styling
-  if (isLastChild) {
-    container.classList.add("trace-span--last-child");
-  }
-
-  // Mark if this has a parent (depth > 0) for tree line continuation
-  if (node.depth > 0) {
-    container.classList.add("trace-span--has-parent");
-  }
-
-  const timeWindow = {
-    start: state?.timeWindowStart ?? 0,
-    end: state?.timeWindowEnd ?? 100,
-  };
-
-  const spanState = state ?? {
-    expandedChildren: new Set(),
-    expandedAttributes: new Set(),
-  };
-
-  const { summary, expander, service, timeline } = renderSpanSummary(
-    trace,
-    node,
-    timeWindow,
-    spanState.expandedChildren,
-    state?.showRunlineX !== false,
-    state?.showRunlineY !== false
-  );
-  container.append(summary);
-
-  // Store span ID on container for easy lookup
-  container.dataset.spanId = node.span.spanId;
-
-  const detailSections = renderSpanDetails(node);
-  const hasDetails = detailSections.childElementCount > 0;
-  if (hasDetails) {
-    detailSections.id = `trace-span-details-${node.span.spanId}`;
-    container.append(detailSections);
-  }
-
-  let childrenContainer = null;
-  if (hasChildren) {
-    const body = document.createElement("div");
-    body.className = "trace-span__body";
-    childrenContainer = document.createElement("div");
-    childrenContainer.className = "trace-span__children";
-    childrenContainer.id = `trace-span-children-${node.span.spanId}`;
-    node.children.forEach((child, index) => {
-      const isLast = index === node.children.length - 1;
-      childrenContainer.append(renderSpanNode(trace, child, spanState, isLast, node.depth));
-    });
-    body.append(childrenContainer);
-    container.append(body);
-  }
-
-  const spanId = node.span.spanId;
-  const childrenOpen = hasChildren && spanState.expandedChildren.has(spanId);
-  if (childrenContainer) {
-    container.classList.toggle("trace-span--children-open", childrenOpen);
-    childrenContainer.hidden = !childrenOpen;
-
-    // Update tree line heights after children are rendered and visibility is set
-    if (childrenOpen) {
-      // Use requestAnimationFrame to ensure DOM is fully laid out
-      requestAnimationFrame(() => {
-        updateRunlineYHeights(summary);
-      });
-    }
-    expander.setAttribute("aria-controls", childrenContainer.id);
-    expander.setAttribute("aria-expanded", String(childrenOpen));
-    service.setAttribute("aria-controls", childrenContainer.id);
-    service.setAttribute("aria-expanded", String(childrenOpen));
-  } else {
-    expander.setAttribute("aria-expanded", "false");
-    service.setAttribute("aria-expanded", "false");
-  }
-
-  let detailsOpen = hasDetails && spanState.expandedAttributes.has(spanId);
-  if (hasDetails) {
-    timeline.setAttribute("aria-controls", detailSections.id);
-    // Don't use hidden - let CSS handle the fade-in animation
-    timeline.setAttribute("aria-expanded", String(detailsOpen));
-    container.classList.toggle("trace-span--details-open", detailsOpen);
-  } else {
-    timeline.disabled = true;
-    timeline.setAttribute("aria-disabled", "true");
-    timeline.setAttribute("aria-expanded", "false");
-  }
-
-  const toggleChildren = () => {
-    if (!childrenContainer) {
-      return;
-    }
-    const next = !container.classList.contains("trace-span--children-open");
-    container.classList.toggle("trace-span--children-open", next);
-    childrenContainer.hidden = !next;
-    expander.setAttribute("aria-expanded", String(next));
-    service.setAttribute("aria-expanded", String(next));
-    if (next) {
-      spanState.expandedChildren.add(spanId);
-      // Update tree line heights after expanding
-      requestAnimationFrame(() => {
-        updateRunlineYHeights(summary);
-      });
-    } else {
-      spanState.expandedChildren.delete(spanId);
-      pruneDescendantState(node, spanState);
-    }
-  };
-
-  expander.addEventListener("click", (event) => {
-    event.stopPropagation();
-    toggleChildren();
-  });
-
-  service.addEventListener("click", (event) => {
-    if (service.disabled) {
-      return;
-    }
-    event.stopPropagation();
-    toggleChildren();
-  });
-
-  timeline.addEventListener("click", (event) => {
-    if (!hasDetails || timeline.disabled) {
-      return;
-    }
-    event.stopPropagation();
-    detailsOpen = !detailsOpen;
-    container.classList.toggle("trace-span--details-open", detailsOpen);
-    // Don't use hidden - let CSS handle the animation
-    timeline.setAttribute("aria-expanded", String(detailsOpen));
-    if (detailsOpen) {
-      spanState.expandedAttributes.add(spanId);
-    } else {
-      spanState.expandedAttributes.delete(spanId);
-    }
-  });
-
-  return container;
-}
-
-function collectSpanIds(nodes, bucket = new Set()) {
-  nodes.forEach((node) => {
-    bucket.add(node.span.spanId);
-    collectSpanIds(node.children, bucket);
-  });
-  return bucket;
-}
-
-// Gather every span that has children so we can expand the whole tree by default.
-function collectExpandableSpanIds(nodes, bucket = new Set()) {
-  nodes.forEach((node) => {
-    if (node.children.length) {
-      bucket.add(node.span.spanId);
-      collectExpandableSpanIds(node.children, bucket);
-    }
-  });
-  return bucket;
-}
-
-function pruneInvalidState(trace, state) {
-  if (!state) {
-    return;
-  }
-  const validIds = collectSpanIds(trace.roots);
-  Array.from(state.expandedChildren).forEach((id) => {
-    if (!validIds.has(id)) {
-      state.expandedChildren.delete(id);
-    }
-  });
-  Array.from(state.expandedAttributes).forEach((id) => {
-    if (!validIds.has(id)) {
-      state.expandedAttributes.delete(id);
-    }
-  });
-}
-
-// Expand all spans with children on first render so the entire trace is visible.
-function ensureChildrenExpanded(trace, state) {
-  if (!state || state.initializedChildren) {
-    return;
-  }
-  const expandableIds = collectExpandableSpanIds(trace.roots);
-  expandableIds.forEach((id) => {
-    state.expandedChildren.add(id);
-  });
-  state.initializedChildren = true;
-}
-
-function createTraceViewState(trace) {
-  const state = {
-    expandedChildren: new Set(),
-    expandedAttributes: new Set(),
-    initializedChildren: false,
-    timeWindowStart: 0, // Percentage of trace (0-100)
-    timeWindowEnd: 100, // Percentage of trace (0-100)
-    showRunlineX: true, // Show horizontal runlines inside spans
-    showRunlineY: false, // Show vertical runlines connecting parent to child
-  };
-  ensureChildrenExpanded(trace, state);
-  return state;
-}
+// Re-export state manager functions for backward compatibility
+const createTraceViewState = createViewState;
 
 /**
  * Creates a live cursor marker that follows the cursor position.
@@ -1790,20 +1414,23 @@ function createTraceViewState(trace) {
  * @returns {Object} Object with marker element and update function
  */
 function createLiveCursorMarker(trace, timeWindow, listContainer) {
-  const marker = document.createElement("div");
-  marker.className = "trace-timeline-marker trace-timeline-marker--cursor";
-  marker.style.display = "none"; // Hidden by default, shown on hover
+  const marker = h('div', {
+    className: 'trace-timeline-marker trace-timeline-marker--cursor',
+    style: { display: 'none' } // Hidden by default, shown on hover
+  });
 
   // Add top label
-  const topLabel = document.createElement("div");
-  topLabel.className = "trace-timeline-marker__label trace-timeline-marker__label--top";
-  topLabel.textContent = "";
+  const topLabel = h('div', {
+    className: 'trace-timeline-marker__label trace-timeline-marker__label--top',
+    textContent: ''
+  });
   marker.append(topLabel);
 
   // Add bottom label
-  const bottomLabel = document.createElement("div");
-  bottomLabel.className = "trace-timeline-marker__label trace-timeline-marker__label--bottom";
-  bottomLabel.textContent = "";
+  const bottomLabel = h('div', {
+    className: 'trace-timeline-marker__label trace-timeline-marker__label--bottom',
+    textContent: ''
+  });
   marker.append(bottomLabel);
 
   const updatePosition = (positionPercent, timestamp) => {
@@ -1893,61 +1520,18 @@ function setupCursorTracking(listContainer, liveCursorMarker, trace, viewState) 
 
 
 export function renderTrace(host, trace, state) {
-  const viewState = state ?? createTraceViewState(trace);
+  const viewState = state ?? createViewState(trace);
   if (!host) {
     return viewState;
   }
+  // Validate and prune state using state manager
   pruneInvalidState(trace, viewState);
   ensureChildrenExpanded(trace, viewState);
 
   host.innerHTML = "";
 
-  const header = document.createElement("header");
-  header.className = "trace-header";
-
-  const title = document.createElement("h3");
-  title.textContent = `Trace ${trace.traceId}`;
-  header.append(title);
-
-  const meta = document.createElement("p");
-  meta.className = "trace-meta";
-  meta.textContent = `Spans: ${trace.spanCount} • Window: ${formatTimestamp(
-    trace.startTimeUnixNano
-  )} – ${formatTimestamp(trace.endTimeUnixNano)}`;
-  header.append(meta);
-
-  // Add runline toggles
-  const controls = document.createElement("div");
-  controls.className = "trace-controls";
-
-  const runlineXLabel = document.createElement("label");
-  runlineXLabel.className = "trace-control";
-  const runlineXCheckbox = document.createElement("input");
-  runlineXCheckbox.type = "checkbox";
-  runlineXCheckbox.checked = viewState.showRunlineX !== false;
-  runlineXCheckbox.addEventListener("change", (e) => {
-    viewState.showRunlineX = e.target.checked;
-    renderTrace(host, trace, viewState);
-  });
-  runlineXLabel.append(runlineXCheckbox);
-  runlineXLabel.append(document.createTextNode(" Runline X"));
-
-  const runlineYLabel = document.createElement("label");
-  runlineYLabel.className = "trace-control";
-  const runlineYCheckbox = document.createElement("input");
-  runlineYCheckbox.type = "checkbox";
-  runlineYCheckbox.checked = viewState.showRunlineY !== false;
-  runlineYCheckbox.addEventListener("change", (e) => {
-    viewState.showRunlineY = e.target.checked;
-    renderTrace(host, trace, viewState);
-  });
-  runlineYLabel.append(runlineYCheckbox);
-  runlineYLabel.append(document.createTextNode(" Runline Y"));
-
-  controls.append(runlineXLabel);
-  controls.append(runlineYLabel);
-  header.append(controls);
-
+  // Render header using component
+  const header = renderTraceHeader(trace, viewState, host, renderTrace);
   host.append(header);
 
   // Add preview trace component
@@ -1970,8 +1554,7 @@ export function renderTrace(host, trace, state) {
   // Store preview reference in viewState for later updates
   viewState.preview = preview;
 
-  const list = document.createElement("div");
-  list.className = "trace-span-list";
+  const list = h('div', { className: 'trace-span-list' });
 
   // Create timeline markers (vertical lines) that span all timelines
   const timeWindow = {
@@ -2021,8 +1604,7 @@ function formatDurationMs(durationNano) {
  * @returns {HTMLElement} Container element with timeline markers
  */
 function createTimelineMarkers(trace, numberOfSwimlanes = 3, timeWindow = { start: 0, end: 100 }) {
-  const container = document.createElement("div");
-  container.className = "trace-timeline-markers";
+  const container = h('div', { className: 'trace-timeline-markers' });
 
   const totalDuration = trace.durationNano || Math.max(
     toNumberTimestamp(trace.endTimeUnixNano) - toNumberTimestamp(trace.startTimeUnixNano),
@@ -2048,20 +1630,23 @@ function createTimelineMarkers(trace, numberOfSwimlanes = 3, timeWindow = { star
     // Calculate absolute time delta from trace start (not window start)
     const absoluteTimeDelta = (totalDuration * absolutePosition) / 100;
 
-    const marker = document.createElement("div");
-    marker.className = "trace-timeline-marker";
-    marker.style.left = `${position}%`;
+    const marker = h('div', {
+      className: 'trace-timeline-marker',
+      style: { left: `${position}%` }
+    });
 
     // Add top label
-    const topLabel = document.createElement("div");
-    topLabel.className = "trace-timeline-marker__label trace-timeline-marker__label--top";
-    topLabel.textContent = formatDurationMs(absoluteTimeDelta);
+    const topLabel = h('div', {
+      className: 'trace-timeline-marker__label trace-timeline-marker__label--top',
+      textContent: formatDurationMs(absoluteTimeDelta)
+    });
     marker.append(topLabel);
 
     // Add bottom label
-    const bottomLabel = document.createElement("div");
-    bottomLabel.className = "trace-timeline-marker__label trace-timeline-marker__label--bottom";
-    bottomLabel.textContent = formatDurationMs(absoluteTimeDelta);
+    const bottomLabel = h('div', {
+      className: 'trace-timeline-marker__label trace-timeline-marker__label--bottom',
+      textContent: formatDurationMs(absoluteTimeDelta)
+    });
     marker.append(bottomLabel);
 
     container.append(marker);
@@ -2076,9 +1661,10 @@ function createTimelineMarkers(trace, numberOfSwimlanes = 3, timeWindow = { star
  * @returns {HTMLElement} The splitter element
  */
 function createSplitter(container) {
-  const splitter = document.createElement("div");
-  splitter.className = "trace-viewer__splitter";
-  splitter.setAttribute("aria-label", "Resize service column");
+  const splitter = h('div', {
+    className: 'trace-viewer__splitter',
+    attrs: { 'aria-label': 'Resize service column' }
+  });
 
   let isDragging = false;
   let startX = 0;
