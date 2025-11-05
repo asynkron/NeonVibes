@@ -160,17 +160,19 @@ function renderParticipants(lines, trace) {
     console.log(`[renderParticipants] Found ${groupComponents.length} components for group ${groupName}`);
 
     if (groupComponents.length > 0) {
-      // Get the service name from the first component in this group to determine box color
+      // Use group name for color lookup (same as trace component: groupName || serviceName)
+      // Get group name from group.name, fall back to component.serviceName if group name is empty
       const firstComponent = groupComponents[0];
+      const colorName = (group.name && group.name !== "") ? group.name : (firstComponent?.serviceName || "unknown-service");
       let boxColor = "";
-      if (firstComponent && firstComponent.serviceName) {
-        const color = computeServiceColor(firstComponent.serviceName);
+      if (colorName) {
+        const color = computeServiceColor(colorName);
         if (color) {
           const rgb = hexToRgb(color);
           if (rgb) {
             // Use more transparent color for the box background
             boxColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.05)`;
-            console.log(`[renderParticipants] Box color for group ${groupName}: ${boxColor} (service: ${firstComponent.serviceName})`);
+            console.log(`[renderParticipants] Box color for group ${groupName}: ${boxColor} (colorName: ${colorName}, group.name: ${group.name}, component.serviceName: ${firstComponent?.serviceName})`);
           }
         }
       }
