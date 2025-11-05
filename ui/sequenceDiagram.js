@@ -5,8 +5,10 @@
  */
 
 import { createComponentKey, ComponentKind } from "./metaModel.js";
-import { getPaletteColors } from "../core/palette.js";
-import { normalizeColorBrightness, hexToRgb } from "../core/colors.js";
+import { getColorKeyFromGroupOrComponent, getColorKeyFromComponent } from "../core/identity.js";
+import { computeServiceColor, computeServiceColorRgb, mixWithSurface } from "../core/colorService.js";
+import { hexToRgb } from "../core/colors.js";
+import { escapeMermaid, escapeMermaidId } from "../core/strings.js";
 
 /**
  * @typedef {import("./trace.js").TraceModel} TraceModel
@@ -103,16 +105,7 @@ function renderParticipants(lines, trace) {
   renderedComponentIds.add("start");
   console.log(`[renderParticipants] Added start participant`);
 
-  // Helper to compute service color (same logic as trace viewer)
-  const computeServiceColor = (serviceName) => {
-    const paletteColors = getPaletteColors();
-    if (paletteColors.length === 0) return null;
-    const serviceIndex = trace.serviceNameMapping?.get(serviceName) ?? 0;
-    const colorIndex = serviceIndex % paletteColors.length;
-    const paletteColor = paletteColors[colorIndex];
-    if (!paletteColor) return null;
-    return normalizeColorBrightness(paletteColor, 50, 0.7);
-  };
+  // Use centralized color service
 
   // Build a map of all components by their groupId for easier lookup
   const componentsByGroup = new Map();
@@ -161,18 +154,17 @@ function renderParticipants(lines, trace) {
 
     if (groupComponents.length > 0) {
       // Use group name for color lookup (same as trace component: groupName || serviceName)
-      // Get group name from group.name, fall back to component.serviceName if group name is empty
       const firstComponent = groupComponents[0];
-      const colorName = (group.name && group.name !== "") ? group.name : (firstComponent?.serviceName || "unknown-service");
+      const colorKey = getColorKeyFromGroupOrComponent(group, firstComponent);
       let boxColor = "";
-      if (colorName) {
-        const color = computeServiceColor(colorName);
+      if (colorKey) {
+        const color = computeServiceColor(colorKey, trace);
         if (color) {
           const rgb = hexToRgb(color);
           if (rgb) {
             // Use more transparent color for the box background
             boxColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.05)`;
-            console.log(`[renderParticipants] Box color for group ${groupName}: ${boxColor} (colorName: ${colorName}, group.name: ${group.name}, component.serviceName: ${firstComponent?.serviceName})`);
+            console.log(`[renderParticipants] Box color for group ${groupName}: ${boxColor} (colorKey: ${colorKey}, group.name: ${group.name}, component.serviceName: ${firstComponent?.serviceName})`);
           }
         }
       }
@@ -255,21 +247,11 @@ function getComponentDeclaration(component) {
 }
 
 /**
- * Mixes two RGB colors by blending them together
- * @param {{r: number, g: number, b: number}} color1 - First RGB color
- * @param {{r: number, g: number, b: number}} color2 - Second RGB color
- * @param {number} ratio - Blend ratio (0-1), where 0 = all color1, 1 = all color2, 0.5 = 50/50 blend
- * @returns {{r: number, g: number, b: number}} Mixed RGB color
+ * Applies colors directly to participant header rectangles in the rendered SVG
+ * Colors are mixed with --surface-1 to blend with the background
+ * @param {HTMLElement} host - Container element with the rendered Mermaid diagram
+ * @param {TraceModel} trace - Trace model with components and serviceNameMapping
  */
-function mixColors(color1, color2, ratio = 0.5) {
-  const invRatio = 1 - ratio;
-  return {
-    r: Math.round(color1.r * invRatio + color2.r * ratio),
-    g: Math.round(color1.g * invRatio + color2.g * ratio),
-    b: Math.round(color1.b * invRatio + color2.b * ratio),
-  };
-}
-
 function applyParticipantColors(host, trace) {
   if (!trace || !trace.components || !trace.serviceNameMapping) {
     console.warn("[applyParticipantColors] Missing trace data");
@@ -284,55 +266,18 @@ function applyParticipantColors(host, trace) {
     return;
   }
 
-  // Get CSS variable for surface-1 (background color)
-  const rootStyles = getComputedStyle(document.documentElement);
-  const surface1Value = rootStyles.getPropertyValue('--surface-1').trim() || '#1e2129';
-  let surface1Rgb = hexToRgb(surface1Value);
-  if (!surface1Rgb) {
-    // Fallback to default dark background if parsing fails
-    surface1Rgb = hexToRgb('#1e2129');
-    console.warn("[applyParticipantColors] Could not parse --surface-1, using fallback");
-  }
-  if (!surface1Rgb) {
-    console.error("[applyParticipantColors] Could not parse fallback color, skipping color application");
-    return;
-  }
-
-  // Get palette colors (same as trace viewer)
-  const paletteColors = getPaletteColors();
-  if (paletteColors.length === 0) {
-    console.warn("[applyParticipantColors] No palette colors available");
-    return;
-  }
-  const paletteLength = paletteColors.length;
-
-  // Helper to compute service color (same logic as trace viewer)
-  const computeServiceColor = (serviceName) => {
-    const serviceIndex = trace.serviceNameMapping?.get(serviceName) ?? 0;
-    const colorIndex = serviceIndex % paletteLength;
-    const paletteColor = paletteColors[colorIndex];
-    if (!paletteColor) {
-      return "#61afef"; // Fallback
-    }
-    return normalizeColorBrightness(paletteColor, 50, 0.7);
-  };
-
   // Find all participant header rectangles by their name attribute
   // Example: <rect class="actor actor-top" name="edge_gateway_Internal" ...>
   trace.components.forEach((component) => {
-    // Get group name from component.groupId lookup
-    const group = component.groupId ? trace.groups.get(component.groupId) : null;
-    const colorName = (group?.name) || component.serviceName || "unknown-service";
+    // Use centralized identity helper to get color key
+    const colorKey = getColorKeyFromComponent(component, trace);
 
-    if (colorName) {
+    if (colorKey) {
       const escapedId = escapeMermaidId(component.id);
-      const color = computeServiceColor(colorName);
-      const serviceRgb = hexToRgb(color);
+      // Use centralized color service to compute and mix with surface
+      const mixedRgb = mixWithSurface(computeServiceColor(colorKey, trace), '--surface-1', 0.75);
 
-      if (serviceRgb && surface1Rgb) {
-        // Mix service color with surface-1 (75% surface-1, 25% service color)
-        const mixedRgb = mixColors(serviceRgb, surface1Rgb, 0.75);
-
+      if (mixedRgb) {
         // Find all rects with this name attribute (typically actor-top and actor-bottom)
         const rects = mermaidSvg.querySelectorAll(`rect[name="${escapedId}"]`);
 
@@ -345,7 +290,7 @@ function applyParticipantColors(host, trace) {
             rect.style.strokeWidth = "2px";
           });
 
-          console.log(`[applyParticipantColors] Applied mixed color to ${rects.length} rect(s) with name="${escapedId}" (colorName: ${colorName}, group.name: ${group?.name}, serviceName: ${component.serviceName}): rgba(${mixedRgb.r}, ${mixedRgb.g}, ${mixedRgb.b}, 1.0)`);
+          console.log(`[applyParticipantColors] Applied mixed color to ${rects.length} rect(s) with name="${escapedId}" (colorKey: ${colorKey}, serviceName: ${component.serviceName}): rgba(${mixedRgb.r}, ${mixedRgb.g}, ${mixedRgb.b}, 1.0)`);
         } else {
           console.warn(`[applyParticipantColors] No rects found with name="${escapedId}"`);
         }
@@ -807,37 +752,7 @@ function toNumberTimestamp(value) {
  * @param {string} text
  * @returns {string}
  */
-function escapeMermaid(text) {
-  if (!text) {
-    return "";
-  }
-  return String(text)
-    .replace(/"/g, '&quot;')
-    .replace(/\n/g, "<br/>")  // Convert newlines to <br/> tags (Mermaid supports this)
-    .replace(/\[/g, "&#91;")
-    .replace(/\]/g, "&#93;")
-    .replace(/\{/g, "&#123;")
-    .replace(/\}/g, "&#125;")
-    .replace(/=/g, "&#61;");
-  // Note: Mermaid does NOT support <b>bold</b> or other HTML formatting tags in sequence diagrams
-  // Markdown **bold** also doesn't work - use uppercase text for emphasis instead
-}
-
-/**
- * Escapes special characters for Mermaid ID (alphanumeric + underscore only)
- * @param {string} id
- * @returns {string}
- */
-function escapeMermaidId(id) {
-  if (!id) {
-    return "unknown";
-  }
-  // Mermaid IDs should be alphanumeric and underscores only
-  // Replace colons, spaces, and other special chars with underscores
-  return String(id)
-    .replace(/[^a-zA-Z0-9_]/g, "_")
-    .replace(/^[0-9]/, "_$&"); // Cannot start with a number
-}
+// escapeMermaid and escapeMermaidId are now imported from core/strings.js
 
 /**
  * Initializes the sequence diagram viewer component

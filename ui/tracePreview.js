@@ -3,8 +3,9 @@
  * Renders an interactive SVG preview of trace spans with time window selection.
  */
 
-import { hexToRgba, normalizeColorBrightness } from "../core/colors.js";
-import { getPaletteColors } from "../core/palette.js";
+import { hexToRgba } from "../core/colors.js";
+import { getColorKeyFromNode } from "../core/identity.js";
+import { computeServiceColor } from "../core/colorService.js";
 import { computeSpanOffsets } from "./trace.js";
 
 /**
@@ -77,24 +78,12 @@ export function renderTracePreview(trace, onSelectionChange = null, initialSelec
   svg.appendChild(background);
 
   // Get palette colors for service coloring
-  const paletteColors = getPaletteColors();
-  const paletteLength = paletteColors.length;
-
-  // Helper to get color for a service
-  const getServiceColor = (serviceName) => {
-    const serviceIndex = trace.serviceNameMapping?.get(serviceName) ?? 0;
-    const colorIndex = serviceIndex % paletteLength;
-    const paletteColor = paletteColors[colorIndex];
-    const normalizedColor = normalizeColorBrightness(paletteColor, 50, 0.7); // Desaturated (70% of original saturation)
-    return normalizedColor;
-  };
-
   // Render each span (preview always shows full range)
   allSpans.forEach((node, index) => {
     const offsets = computeSpanOffsets(trace, node.span, { start: 0, end: 100 });
-    // Use groupName || serviceName for color lookup (same as trace component)
-    const colorName = node.description?.groupName || node.span.resource?.serviceName || "unknown-service";
-    const color = getServiceColor(colorName);
+    // Use centralized identity helper and color service
+    const colorKey = getColorKeyFromNode(node);
+    const color = computeServiceColor(colorKey, trace);
 
     // Calculate Y position: SPAN_GAP + index * (spanHeight + SPAN_GAP)
     const y = SPAN_GAP + index * (spanHeight + SPAN_GAP);
@@ -398,27 +387,6 @@ export function renderTracePreview(trace, onSelectionChange = null, initialSelec
     }
 
     // Update span rectangle fill colors - read fresh palette colors
-    const paletteColors = getPaletteColors();
-    console.log("[Trace Preview Update] Palette colors read:", paletteColors);
-    if (paletteColors.length === 0) {
-      // If no palette colors available, skip update
-      console.warn("[Trace Preview Update] No palette colors available, skipping update");
-      return;
-    }
-    const paletteLength = paletteColors.length;
-
-    // Helper to compute service color
-    const computeServiceColor = (serviceName) => {
-      const serviceIndex = trace.serviceNameMapping?.get(serviceName) ?? 0;
-      const colorIndex = serviceIndex % paletteLength;
-      const paletteColor = paletteColors[colorIndex];
-      if (!paletteColor) {
-        // Fallback if palette color is missing
-        return "#61afef";
-      }
-      return normalizeColorBrightness(paletteColor, 50, 0.7);
-    };
-
     // Find all span rectangles (excluding background and overlays)
     const spanRects = svg.querySelectorAll("rect:not(.trace-preview-background):not(.trace-preview__selection)");
 
@@ -426,15 +394,13 @@ export function renderTracePreview(trace, onSelectionChange = null, initialSelec
     spanRects.forEach((rect, index) => {
       if (index < allSpans.length) {
         const node = allSpans[index];
-        // Use groupName || serviceName for color lookup (same as trace component)
-        const colorName = node.description?.groupName || node.span.resource?.serviceName || "unknown-service";
-        const serviceIndex = trace.serviceNameMapping?.get(colorName) ?? 0;
-        const colorIndex = serviceIndex % paletteLength;
-        const color = computeServiceColor(colorName);
+        // Use centralized identity helper and color service
+        const colorKey = getColorKeyFromNode(node);
+        const color = computeServiceColor(colorKey, trace);
         const rgba = hexToRgba(color, 0.6);
         rect.setAttribute("fill", rgba);
         if (index < 3) { // Log first 3 spans to avoid spam
-          console.log(`[Trace Preview Update] Span ${index}: colorName="${colorName}", groupName="${node.description?.groupName}", serviceName="${node.span.resource?.serviceName}", index=${serviceIndex}, colorIndex=${colorIndex}, color="${color}", rgba="${rgba}"`);
+          console.log(`[Trace Preview Update] Span ${index}: colorKey="${colorKey}", groupName="${node.description?.groupName}", serviceName="${node.span.resource?.serviceName}", color="${color}", rgba="${rgba}"`);
         }
       }
     });

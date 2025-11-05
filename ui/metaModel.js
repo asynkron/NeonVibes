@@ -387,6 +387,31 @@ export function extractSpanDescription(span, serviceName) {
 }
 
 /**
+ * Normalizes group and component names from a span description.
+ * If component is Service and group is empty, uses component name as group.
+ * Ensures component name is never empty.
+ * @param {SpanDescription} description - Span description from extractor
+ * @returns {{groupName: string, componentName: string}} Normalized names
+ */
+export function normalizeServiceAndGroup(description) {
+  let groupName = description.groupName || "";
+  let componentName = description.componentName || "";
+
+  // If component is Service and group is empty, use component name as group
+  if (description.componentKind === ComponentKind.SERVICE && !groupName) {
+    groupName = componentName;
+    componentName = "Internal";
+  }
+
+  // Ensure component name is never empty
+  if (!componentName) {
+    componentName = "Unknown";
+  }
+
+  return { groupName, componentName };
+}
+
+/**
  * Creates a unique string key for groups/components.
  * @param {string} groupName
  * @param {string} componentName

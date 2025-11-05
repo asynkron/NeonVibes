@@ -7,10 +7,12 @@
 
 import { normalizeAnyValue, createLogAttribute, formatNanoseconds, resolveSeverityGroup, abbreviateLogLevel, buildTemplateFragment, createMetaSection, createLogCard } from "./logs.js";
 import { createAttributeTable } from "./attributes.js";
-import { hexToRgb, hexToRgba, normalizeColorBrightness } from "../core/colors.js";
-import { getPaletteColors } from "../core/palette.js";
-import { ComponentKind, extractSpanDescription, createComponentKey } from "./metaModel.js";
+import { hexToRgb, hexToRgba } from "../core/colors.js";
+import { getColorKeyFromNode } from "../core/identity.js";
+import { computeServiceColorRgb } from "../core/colorService.js";
+import { ComponentKind, extractSpanDescription, createComponentKey, normalizeServiceAndGroup } from "./metaModel.js";
 import { renderTracePreview } from "./tracePreview.js";
+import { h, setStyles, setAttrs } from "../core/dom.js";
 
 // Lazy import for sampleLogRows to avoid circular dependency with sampleData.js
 // sampleData.js imports from trace.js, so we can't import it at module level
@@ -185,7 +187,7 @@ function clamp(value, min = 0, max = 1) {
 function buildServiceNameMapping(spanNodes) {
   const serviceNames = new Set();
   spanNodes.forEach((node) => {
-    const serviceName = node.description?.groupName || node.span.resource?.serviceName || "unknown-service";
+    const serviceName = getColorKeyFromNode(node);
     serviceNames.add(serviceName);
   });
 
@@ -355,16 +357,8 @@ export function buildTraceModel(spans, logRows = null) {
     const serviceName = span.resource?.serviceName || "unknown-service";
     const description = extractSpanDescription(span, serviceName);
 
-    // Normalize group name - if component is Service and group is empty, use component name as group
-    let groupName = description.groupName;
-    let componentName = description.componentName;
-    if (description.componentKind === ComponentKind.SERVICE && !groupName) {
-      groupName = componentName;
-      componentName = "Internal";
-    }
-    if (!componentName) {
-      componentName = "Unknown";
-    }
+    // Normalize group and component names using shared normalizer
+    const { groupName, componentName } = normalizeServiceAndGroup(description);
 
     // Create or get group
     const groupId = groupName || "";
@@ -980,43 +974,38 @@ function renderSpanLogs(node) {
   const expandedLogIds = new Set();
 
   sortedLogs.forEach((logRow) => {
-    const logElement = document.createElement("details");
-    logElement.className = `log-row log-row--severity-${resolveSeverityGroup(logRow)}`;
-    logElement.dataset.rowId = logRow.id;
-    if (expandedLogIds.has(logRow.id)) {
-      logElement.open = true;
-    }
-
-    const summary = document.createElement("summary");
-    summary.className = "log-row-summary";
-
-    const expanderWrapper = document.createElement("span");
-    expanderWrapper.className = "log-row__expander-wrapper";
-    const expander = document.createElement("button");
-    expander.className = "log-row__expander";
-    expander.type = "button";
-    expander.setAttribute("aria-expanded", String(logElement.open));
-    expanderWrapper.appendChild(expander);
-
-    const severity = document.createElement("span");
-    severity.className = "log-row-severity";
     const severityGroup = resolveSeverityGroup(logRow);
-    const severityToDisplay = logRow.severityText ?? severityGroup;
-    severity.textContent = abbreviateLogLevel(severityToDisplay);
+    const isOpen = expandedLogIds.has(logRow.id);
+    const logElement = h('details', {
+      className: `log-row log-row--severity-${severityGroup}`,
+      dataset: { rowId: logRow.id },
+      open: isOpen
+    });
 
-    const timestamp = document.createElement("time");
-    timestamp.className = "log-row-timestamp";
-    timestamp.dateTime =
-      typeof logRow.timeUnixNano === "bigint"
+    const expander = h('button', {
+      type: 'button',
+      className: 'log-row__expander',
+      attrs: { 'aria-expanded': String(isOpen) }
+    });
+    const expanderWrapper = h('span', { className: 'log-row__expander-wrapper' }, expander);
+
+    const severity = h('span', { className: 'log-row-severity' },
+      abbreviateLogLevel(logRow.severityText ?? severityGroup)
+    );
+
+    const timestamp = h('time', {
+      className: 'log-row-timestamp',
+      dateTime: typeof logRow.timeUnixNano === "bigint"
         ? new Date(Number(logRow.timeUnixNano / 1000000n)).toISOString()
-        : new Date((logRow.timeUnixNano ?? 0) / 1e6).toISOString();
-    timestamp.textContent = formatNanoseconds(logRow.timeUnixNano);
+        : new Date((logRow.timeUnixNano ?? 0) / 1e6).toISOString()
+    }, formatNanoseconds(logRow.timeUnixNano));
 
-    const message = document.createElement("span");
-    message.className = "log-row-message";
-    message.appendChild(buildTemplateFragment(logRow));
+    const message = h('span', { className: 'log-row-message' }, buildTemplateFragment(logRow));
 
-    summary.append(expanderWrapper, timestamp, severity, message);
+    const summary = h('summary', { className: 'log-row-summary' },
+      expanderWrapper, timestamp, severity, message
+    );
+
     logElement.appendChild(summary);
     logElement.appendChild(createMetaSection(logRow));
 
@@ -1026,7 +1015,7 @@ function renderSpanLogs(node) {
       } else {
         expandedLogIds.delete(logRow.id);
       }
-      expander.setAttribute("aria-expanded", String(logElement.open));
+      setAttrs(expander, { 'aria-expanded': String(logElement.open) });
     });
 
     logsList.append(logElement);
@@ -1434,59 +1423,40 @@ function renderSpanSummary(trace, node, timeWindow = { start: 0, end: 100 }, exp
   summary.style.setProperty("--depth", String(node.depth));
 
   // Create wrapper for expander and service that can be indented
-  const leftSection = document.createElement("div");
-  leftSection.className = "trace-span__left";
-  leftSection.style.paddingLeft = `calc(var(--depth) * var(--trace-indent-width, 1rem))`;
+  const leftSection = h('div', {
+    className: 'trace-span__left',
+    style: { paddingLeft: 'calc(var(--depth) * var(--trace-indent-width, 1rem))' }
+  });
 
-  const expander = document.createElement("button");
-  expander.type = "button";
-  expander.className = "trace-span__expander";
-  expander.setAttribute(
-    "aria-label",
-    node.children.length ? "Toggle child spans" : "No child spans"
-  );
-  expander.disabled = !node.children.length;
+  const expander = h('button', {
+    type: 'button',
+    className: 'trace-span__expander',
+    attrs: {
+      'aria-label': node.children.length ? 'Toggle child spans' : 'No child spans'
+    },
+    disabled: !node.children.length
+  });
   leftSection.append(expander);
 
-  const service = document.createElement("button");
-  service.type = "button";
-  service.className = "trace-span__service";
-  const serviceName = node.description?.groupName || node.span.resource?.serviceName || "unknown-service";
-  const namespace = node.span.resource?.serviceNamespace;
-  const scope = node.span.instrumentationScope?.name;
-
-  // Get component name from description if available
+  const serviceName = getColorKeyFromNode(node);
   const componentName = node.description?.componentName;
 
-  // Get service color for indicator (will compute for bar later too)
-  const getServiceColor = (serviceName) => {
-    const serviceIdx = trace.serviceNameMapping?.get(serviceName) ?? 0;
-    const paletteCols = getPaletteColors();
-    const paletteLen = paletteCols.length;
-    const colorIdx = serviceIdx % paletteLen;
-    const palColor = paletteCols[colorIdx];
-    const normColor = normalizeColorBrightness(palColor, 50, 0.7);
-    return hexToRgb(normColor);
-  };
+  // Use centralized color service
+  const serviceRgb = computeServiceColorRgb(serviceName, trace);
+  const indicatorStyle = serviceRgb
+    ? { backgroundColor: `rgba(${serviceRgb.r}, ${serviceRgb.g}, ${serviceRgb.b}, 0.6)` }
+    : {};
 
-  const serviceRgb = getServiceColor(serviceName);
-  let serviceColorStyle = "";
-  if (serviceRgb) {
-    serviceColorStyle = `background-color: rgba(${serviceRgb.r}, ${serviceRgb.g}, ${serviceRgb.b}, 0.6);`;
-  }
-
-  service.innerHTML = `
-    <div class="trace-span__service-row">
-      <span class="trace-span__service-indicator" style="${serviceColorStyle}"></span>
-      <span class="trace-span__service-name">${serviceName}</span><br/>
-      <span class="trace-span__component-name">${componentName}</span><br/>      
-    </div>
-   
-  `;
-  if (!node.children.length) {
-    service.disabled = true;
-    service.setAttribute("aria-disabled", "true");
-  }
+  const service = h('button', {
+    type: 'button',
+    className: 'trace-span__service',
+    disabled: !node.children.length,
+    attrs: !node.children.length ? { 'aria-disabled': 'true' } : {}
+  }, h('div', { className: 'trace-span__service-row' },
+    h('span', { className: 'trace-span__service-indicator', style: indicatorStyle }),
+    h('span', { className: 'trace-span__service-name' }, serviceName),
+    h('span', { className: 'trace-span__component-name' }, componentName)
+  ));
   leftSection.append(service);
 
   summary.append(leftSection);
@@ -1509,21 +1479,12 @@ function renderSpanSummary(trace, node, timeWindow = { start: 0, end: 100 }, exp
     bar.style.display = "none";
   }
 
-  // Get palette color based on service name index
-  const serviceIndex = trace.serviceNameMapping?.get(serviceName) ?? 0;
-  const paletteColors = getPaletteColors();
-  const paletteLength = paletteColors.length;
-  const colorIndex = serviceIndex % paletteLength;
-  // Normalize color to lighter shade with reduced saturation for subtle effect
-  const paletteColor = paletteColors[colorIndex];
-  const normalizedColor = normalizeColorBrightness(paletteColor, 50, 0.7); // Lighter (50%) and desaturated (70% of original saturation)
-
-  // Convert hex to RGB for rgba with opacity
-  const rgb = hexToRgb(normalizedColor);
-  if (rgb) {
+  // Use centralized color service for bar colors (already computed for service indicator)
+  const barRgb = serviceRgb;
+  if (barRgb) {
     // Use rgba with 0.6 opacity for less intense colors
-    bar.style.setProperty("--service-color", `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.6)`);
-    bar.style.setProperty("--service-shadow", `0 0 18px rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.25)`);
+    bar.style.setProperty("--service-color", `rgba(${barRgb.r}, ${barRgb.g}, ${barRgb.b}, 0.6)`);
+    bar.style.setProperty("--service-shadow", `0 0 18px rgba(${barRgb.r}, ${barRgb.g}, ${barRgb.b}, 0.25)`);
   }
 
   const name = document.createElement("span");
