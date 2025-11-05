@@ -143,6 +143,37 @@ function extractHttpEndpoint(span, serviceName) {
 }
 
 /**
+ * gRPC Endpoint extractor - extracts gRPC server endpoints
+ * @param {TraceSpan} span
+ * @param {string} serviceName
+ * @returns {SpanDescription | null}
+ */
+function extractGrpcEndpoint(span, serviceName) {
+  const rpcSystem = getSpanAttribute(span, "rpc.system");
+  if (rpcSystem !== "grpc") {
+    return null;
+  }
+
+  const rpcService = getSpanAttribute(span, "rpc.service");
+  const rpcMethod = getSpanAttribute(span, "rpc.method");
+
+  if (rpcService) {
+    // Use rpc.service as component name (e.g., "BasketApi.Basket")
+    // Use rpc.method as operation (e.g., "GetBasketById")
+    return {
+      groupName: serviceName,
+      componentName: rpcService,
+      operation: rpcMethod || "",
+      componentKind: ComponentKind.ENDPOINT,
+      componentStack: "gRPC",
+      entrypointType: 1, // entrypoint
+    };
+  }
+
+  return null;
+}
+
+/**
  * Database extractor - extracts database operations
  * @param {TraceSpan} span
  * @param {string} serviceName
@@ -321,6 +352,7 @@ function extractExternalHttpEndpoint(span, serviceName) {
 const EXTRACTORS = [
   extractRoot,
   extractHttpEndpoint,
+  extractGrpcEndpoint,
   extractHttpRequest,
   extractDatabase,
   extractQueue,
