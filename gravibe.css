@@ -673,13 +673,15 @@ body {
   height: 8px;
   border-radius: 2px;
   flex-shrink: 0;
-  align-self: flex-start;
+  align-self: center;
+  margin-top: 0.125rem;
 }
 
 .trace-span__service-row {
   display: flex;
   align-items: center;
   gap: 0.4rem;
+  line-height: 1.2;
 }
 
 .trace-span__service-name {
@@ -704,6 +706,9 @@ body {
 .trace-span__component-name {
   font-size: var(--font-size-xs);
   opacity: 0.7;
+  line-height: 1.2;
+  display: block;
+  margin-top: 0.125rem;
 }
 
 .trace-span__service-namespace {
