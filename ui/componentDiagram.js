@@ -1,11 +1,11 @@
 /**
  * Gravibe Component Diagram Generator
  * Generates Mermaid component diagrams from trace metamodel data.
- * Based on TraceLens.Server/generators/PlantUml/Component1Generator.cs and Component2Generator.cs
+ * Based on TraceLens.Server/generators/PlantUml/Component1Generator.cs, Component2Generator.cs, and Component3Generator.cs
  * Ported from PlantUML to Mermaid.js
  * 
- * Component2Generator: Simpler version that shows only component-to-component relationships
- * without subcomponents (operations). This is the default generator.
+ * Component2Generator: Shows only component-to-component relationships without subcomponents (operations)
+ * Component3Generator: Shows individual spans as components with operations as subcomponents (currently active)
  */
 
 import { createComponentKey, ComponentKind } from "./metaModel.js";
@@ -25,12 +25,14 @@ import { buildTraceModel } from "./trace.js";
  * @property {boolean} curvedLines - Use curved lines (not supported in Mermaid, kept for compatibility)
  * @property {boolean} leftToRight - Render left to right (default: true)
  * @property {string} theme - Mermaid theme (default, dark, forest, neutral)
+ * @property {number} generator - Generator version (1, 2, or 3) - default: 3
  */
 
 const DEFAULT_CONFIG = {
   curvedLines: false,
   leftToRight: true,
   theme: "dark",
+  generator: 3, // Default to Component3Generator
 };
 
 /**
@@ -75,10 +77,10 @@ function buildComponentModel(trace) {
         ? createComponentKey(childDescription.groupName, childDescription.componentName)
         : "";
       const operation = childDescription.operation || "";
-      
+
       // Determine call kind (simplified - could check span attributes)
-      const kind = child.span.kind === "SPAN_KIND_PRODUCER" || child.span.kind === "SPAN_KIND_CONSUMER" 
-        ? "async" 
+      const kind = child.span.kind === "SPAN_KIND_PRODUCER" || child.span.kind === "SPAN_KIND_CONSUMER"
+        ? "async"
         : "sync";
 
       if (toId && fromId) {
@@ -169,15 +171,16 @@ function getComponentDeclaration(component) {
 
 /**
  * Generates a Mermaid component diagram from a trace model
+ * Supports three generator versions: Component1Generator, Component2Generator, Component3Generator
  * @param {TraceModel} trace - Trace model
  * @param {ComponentConfig=} config - Configuration options
  * @returns {string} Mermaid component diagram syntax
  */
 export function generateComponentDiagram(trace, config = {}) {
   const cfg = { ...DEFAULT_CONFIG, ...config };
-  const lines = [];
+  const generator = cfg.generator || 3;
 
-  console.log("[generateComponentDiagram] Starting diagram generation");
+  console.log(`[generateComponentDiagram] Starting diagram generation (Component${generator}Generator)`);
   console.log("[generateComponentDiagram] Trace model:", {
     traceId: trace.traceId,
     spanCount: trace.spanCount,
@@ -186,40 +189,166 @@ export function generateComponentDiagram(trace, config = {}) {
     componentsCount: trace.components.size,
   });
 
-  // Build component model with calls
-  const { components, groups, calls } = buildComponentModel(trace);
-  console.log("[generateComponentDiagram] Built component model:", {
-    componentsCount: components.size,
-    groupsCount: groups.size,
-    callsCount: calls.length,
-  });
-
-  // Start flowchart diagram with LR direction
-  lines.push("flowchart LR");
-
-  // Render groups and components
-  renderGroups(lines, components, groups, calls);
-
-  // Render calls between components
-  renderCalls(lines, components, calls);
-
-  // Apply styling
-  applyStyling(lines, components, groups, calls);
-
-  const diagram = lines.join("\n");
-  console.log(`[generateComponentDiagram] Generated diagram with ${lines.length} lines`);
-
-  return diagram;
+  // Route to appropriate generator
+  switch (generator) {
+    case 1:
+      return generateComponent1Diagram(trace, cfg);
+    case 2:
+      return generateComponent2Diagram(trace, cfg);
+    case 3:
+      return generateComponent3Diagram(trace, cfg);
+    default:
+      console.warn(`[generateComponentDiagram] Unknown generator version ${generator}, using Component3Generator`);
+      return generateComponent3Diagram(trace, cfg);
+  }
 }
 
 /**
- * Renders groups and components (Component2Generator style - no subcomponents)
+ * Generates a Mermaid component diagram using Component1Generator style
+ * Shows components with subcomponents (operations) and calls between subcomponents
+ * @param {TraceModel} trace - Trace model
+ * @param {ComponentConfig} config - Configuration options
+ * @returns {string} Mermaid component diagram syntax
+ */
+function generateComponent1Diagram(trace, config) {
+  const lines = [];
+  const { components, groups, calls } = buildComponentModel(trace);
+
+  lines.push("flowchart LR");
+  renderGroupsWithSubcomponents(lines, components, groups, calls);
+  renderCallsWithSubcomponents(lines, components, calls);
+  applyStylingWithSubcomponents(lines, components, groups, calls);
+
+  return lines.join("\n");
+}
+
+/**
+ * Generates a Mermaid component diagram using Component2Generator style
+ * Shows only component-to-component relationships without subcomponents
+ * @param {TraceModel} trace - Trace model
+ * @param {ComponentConfig} config - Configuration options
+ * @returns {string} Mermaid component diagram syntax
+ */
+function generateComponent2Diagram(trace, config) {
+  const lines = [];
+  const { components, groups, calls } = buildComponentModel(trace);
+
+  lines.push("flowchart LR");
+  renderGroupsWithoutSubcomponents(lines, components, groups);
+  renderCallsComponentToComponent(lines, components, calls);
+  applyStylingWithoutSubcomponents(lines, components);
+
+  return lines.join("\n");
+}
+
+/**
+ * Generates a Mermaid component diagram using Component3Generator style
+ * Shows individual spans as components with operations as subcomponents
+ * @param {TraceModel} trace - Trace model
+ * @param {ComponentConfig} config - Configuration options
+ * @returns {string} Mermaid component diagram syntax
+ */
+function generateComponent3Diagram(trace, config) {
+  const lines = [];
+
+  lines.push("flowchart LR");
+  renderSpans(lines, trace);
+  renderSpanCalls(lines, trace);
+  applySpanStyling(lines, trace);
+
+  return lines.join("\n");
+}
+
+/**
+ * Renders groups and components with subcomponents (Component1Generator style)
  * @param {string[]} lines - Output lines array
  * @param {Map<string, Component>} components - Components map
  * @param {Map<string, Group>} groups - Groups map
  * @param {Call[]} calls - Calls array
  */
-function renderGroups(lines, components, groups, calls) {
+function renderGroupsWithSubcomponents(lines, components, groups, calls) {
+  const renderedSubcomponents = new Set();
+
+  // First, render components that are not in any group
+  components.forEach((component) => {
+    const group = groups.get(component.groupId);
+    if (!group && component.name !== "nginx") {
+      // Component not in a group
+      const componentId = escapeMermaidId(component.id);
+      lines.push(`    ${getComponentDeclaration(component)}`);
+
+      // Find subcomponents (operations) for this component
+      const subcomponents = calls
+        .filter((call) => call.toId === component.id && call.operation && call.operation !== "")
+        .map((call) => getSubComponentId(component.id, call.operation))
+        .filter((id) => {
+          if (renderedSubcomponents.has(id)) return false;
+          renderedSubcomponents.add(id);
+          return true;
+        });
+
+      subcomponents.forEach((subId) => {
+        const call = calls.find(
+          (c) => getSubComponentId(component.id, c.operation) === subId
+        );
+        if (call) {
+          const escapedSubId = escapeMermaidId(subId);
+          const escapedOperation = escapeMermaid(call.operation);
+          lines.push(`    ${escapedSubId}["${escapedOperation}"]`);
+          lines.push(`    ${escapedSubId} -.-> ${componentId}`);
+        }
+      });
+    }
+  });
+
+  // Then render groups with their components
+  groups.forEach((group) => {
+    const groupId = escapeMermaidId(group.id);
+    const escapedGroupName = escapeMermaid(group.name);
+
+    lines.push(`    subgraph ${groupId}["${escapedGroupName}"]`);
+
+    // Render components in this group
+    components.forEach((component) => {
+      if (component.groupId === group.id) {
+        const componentId = escapeMermaidId(component.id);
+        lines.push(`        ${getComponentDeclaration(component)}`);
+
+        // Find subcomponents (operations) for this component
+        const subcomponents = calls
+          .filter((call) => call.toId === component.id && call.operation && call.operation !== "")
+          .map((call) => getSubComponentId(component.id, call.operation))
+          .filter((id) => {
+            if (renderedSubcomponents.has(id)) return false;
+            renderedSubcomponents.add(id);
+            return true;
+          });
+
+        subcomponents.forEach((subId) => {
+          const call = calls.find(
+            (c) => getSubComponentId(component.id, c.operation) === subId
+          );
+          if (call) {
+            const escapedSubId = escapeMermaidId(subId);
+            const escapedOperation = escapeMermaid(call.operation);
+            lines.push(`        ${escapedSubId}["${escapedOperation}"]`);
+            lines.push(`        ${escapedSubId} -.-> ${componentId}`);
+          }
+        });
+      }
+    });
+
+    lines.push(`    end`);
+  });
+}
+
+/**
+ * Renders groups and components without subcomponents (Component2Generator style)
+ * @param {string[]} lines - Output lines array
+ * @param {Map<string, Component>} components - Components map
+ * @param {Map<string, Group>} groups - Groups map
+ */
+function renderGroupsWithoutSubcomponents(lines, components, groups) {
   // First, render components that are not in any group
   components.forEach((component) => {
     const group = groups.get(component.groupId);
@@ -233,9 +362,9 @@ function renderGroups(lines, components, groups, calls) {
   groups.forEach((group) => {
     const groupId = escapeMermaidId(group.id);
     const escapedGroupName = escapeMermaid(group.name);
-    
+
     lines.push(`    subgraph ${groupId}["${escapedGroupName}"]`);
-    
+
     // Render components in this group
     components.forEach((component) => {
       if (component.groupId === group.id) {
@@ -248,21 +377,57 @@ function renderGroups(lines, components, groups, calls) {
 }
 
 /**
+ * Renders calls between components with subcomponents (Component1Generator style)
+ * @param {string[]} lines - Output lines array
+ * @param {Map<string, Component>} components - Components map
+ * @param {Call[]} calls - Calls array
+ */
+function renderCallsWithSubcomponents(lines, components, calls) {
+  const renderedCalls = new Set();
+
+  calls.forEach((call) => {
+    const fromId = call.parentCall
+      ? getSubComponentId(call.parentCall.toId, call.parentCall.operation)
+      : call.fromId;
+    const toId = call.operation && call.operation !== ""
+      ? getSubComponentId(call.toId, call.operation)
+      : call.toId;
+
+    if (fromId === toId) return;
+
+    const callKey = `${fromId}->${toId}`;
+    if (renderedCalls.has(callKey)) return;
+    renderedCalls.add(callKey);
+
+    const escapedFromId = escapeMermaidId(fromId);
+    const escapedToId = escapeMermaidId(toId);
+    const escapedLabel = escapeMermaid(`${call.callCount} calls`);
+
+    // Use different arrow styles for sync vs async
+    if (call.kind === "async") {
+      lines.push(`    ${escapedFromId} -.->|"${escapedLabel}"| ${escapedToId}`);
+    } else {
+      lines.push(`    ${escapedFromId} -->|"${escapedLabel}"| ${escapedToId}`);
+    }
+  });
+}
+
+/**
  * Renders calls between components (Component2Generator style - component-to-component only)
  * @param {string[]} lines - Output lines array
  * @param {Map<string, Component>} components - Components map
  * @param {Call[]} calls - Calls array
  */
-function renderCalls(lines, components, calls) {
+function renderCallsComponentToComponent(lines, components, calls) {
   const renderedCalls = new Set();
 
   // Group calls by component-to-component pairs (ignoring operations)
   const componentCalls = new Map();
-  
+
   calls.forEach((call) => {
     const fromId = call.fromId;
     const toId = call.toId;
-    
+
     if (fromId === toId || !fromId || !toId) return;
 
     const callKey = `${fromId}->${toId}`;
@@ -274,7 +439,7 @@ function renderCalls(lines, components, calls) {
         callCount: 0,
       });
     }
-    
+
     const componentCall = componentCalls.get(callKey);
     componentCall.callCount += call.callCount;
     // Use async if any call is async
@@ -303,13 +468,69 @@ function renderCalls(lines, components, calls) {
 }
 
 /**
- * Applies styling to components based on their kind (Component2Generator style - no subcomponents)
+ * Applies styling to components with subcomponents (Component1Generator style)
  * @param {string[]} lines - Output lines array
  * @param {Map<string, Component>} components - Components map
  * @param {Map<string, Group>} groups - Groups map
  * @param {Call[]} calls - Calls array
  */
-function applyStyling(lines, components, groups, calls) {
+function applyStylingWithSubcomponents(lines, components, groups, calls) {
+  // Add class definitions for different component kinds
+  lines.push("");
+  lines.push("    classDef start fill:#61afef,stroke:#4a90e2,stroke-width:2px");
+  lines.push("    classDef endpoint fill:#98c379,stroke:#7ba05a,stroke-width:2px");
+  lines.push("    classDef service fill:#c678dd,stroke:#9b59b6,stroke-width:2px");
+  lines.push("    classDef actor fill:#e5c07b,stroke:#d19a66,stroke-width:2px");
+  lines.push("    classDef queue fill:#e86671,stroke:#c0392b,stroke-width:2px");
+  lines.push("    classDef queueconsumer fill:#3498db,stroke:#2980b9,stroke-width:2px");
+  lines.push("    classDef workflow fill:#1abc9c,stroke:#16a085,stroke-width:2px");
+  lines.push("    classDef activity fill:#f39c12,stroke:#e67e22,stroke-width:2px");
+  lines.push("    classDef database fill:#95a5a6,stroke:#7f8c8d,stroke-width:2px");
+  lines.push("    classDef subcomponent fill:#34495e,stroke:#2c3e50,stroke-width:1px,stroke-dasharray: 3 3");
+
+  // Apply styles to components
+  components.forEach((component) => {
+    const componentId = escapeMermaidId(component.id);
+    const kind = (component.kind || ComponentKind.SERVICE).toLowerCase();
+    const classMap = {
+      start: "start",
+      endpoint: "endpoint",
+      service: "service",
+      actor: "actor",
+      queue: "queue",
+      queueconsumer: "queueconsumer",
+      workflow: "workflow",
+      activity: "activity",
+      database: "database",
+      databasestatement: "database",
+    };
+    const className = classMap[kind] || "service";
+    lines.push(`    class ${componentId} ${className}`);
+  });
+
+  // Apply subcomponent style to all subcomponents (operations)
+  const subcomponentIds = [];
+  calls.forEach((call) => {
+    if (call.operation && call.operation !== "") {
+      const subId = getSubComponentId(call.toId, call.operation);
+      if (!subcomponentIds.includes(subId)) {
+        subcomponentIds.push(subId);
+      }
+    }
+  });
+
+  subcomponentIds.forEach((subId) => {
+    const escapedSubId = escapeMermaidId(subId);
+    lines.push(`    class ${escapedSubId} subcomponent`);
+  });
+}
+
+/**
+ * Applies styling to components without subcomponents (Component2Generator style)
+ * @param {string[]} lines - Output lines array
+ * @param {Map<string, Component>} components - Components map
+ */
+function applyStylingWithoutSubcomponents(lines, components) {
   // Add class definitions for different component kinds
   lines.push("");
   lines.push("    classDef start fill:#61afef,stroke:#4a90e2,stroke-width:2px");
@@ -344,6 +565,178 @@ function applyStyling(lines, components, groups, calls) {
 }
 
 /**
+ * Renders spans as components (Component3Generator style)
+ * Each span becomes a component, and operations become subcomponents
+ * @param {string[]} lines - Output lines array
+ * @param {TraceModel} trace - Trace model
+ */
+function renderSpans(lines, trace) {
+  // Collect all spans
+  const allSpans = [];
+  const collectSpans = (node) => {
+    allSpans.push(node);
+    if (node.children) {
+      node.children.forEach(collectSpans);
+    }
+  };
+  trace.roots.forEach(collectSpans);
+
+  allSpans.forEach((spanNode) => {
+    const span = spanNode.span;
+    const description = spanNode.description;
+    if (!description) return;
+
+    const component = trace.components.get(
+      createComponentKey(description.groupName, description.componentName)
+    );
+    if (!component) return;
+
+    const spanId = escapeMermaidId(span.spanId);
+    const escapedComponentName = escapeMermaid(component.name);
+
+    // Render component for this span using spanId as the node ID
+    // Component3Generator uses spanId as the component identifier
+    lines.push(`    ${spanId}["${escapedComponentName}"]`);
+
+    // If span has an operation, render it as a subcomponent
+    if (description.operation && description.operation !== "") {
+      const operationId = escapeMermaidId(span.spanId + "op");
+      const escapedOperation = escapeMermaid(description.operation);
+      lines.push(`    ${operationId}["${escapedOperation}"]`);
+      lines.push(`    ${operationId} -.-> ${spanId}`);
+    }
+  });
+}
+
+/**
+ * Renders calls between spans (Component3Generator style)
+ * Each call is between span IDs, using operation IDs if operations exist
+ * @param {string[]} lines - Output lines array
+ * @param {TraceModel} trace - Trace model
+ */
+function renderSpanCalls(lines, trace) {
+  // Collect all spans with their children
+  const allSpans = [];
+  const collectSpans = (node) => {
+    allSpans.push(node);
+    if (node.children) {
+      node.children.forEach(collectSpans);
+    }
+  };
+  trace.roots.forEach(collectSpans);
+
+  allSpans.forEach((spanNode) => {
+    if (!spanNode.children || spanNode.children.length === 0) return;
+
+    const parentSpan = spanNode.span;
+    const parentDescription = spanNode.description;
+    if (!parentDescription) return;
+
+    // Determine from ID: use spanId + "op" if operation exists, otherwise just spanId
+    const fromId = parentDescription.operation && parentDescription.operation !== ""
+      ? escapeMermaidId(parentSpan.spanId + "op")
+      : escapeMermaidId(parentSpan.spanId);
+
+    spanNode.children.forEach((childNode) => {
+      const childSpan = childNode.span;
+      const childDescription = childNode.description;
+      if (!childDescription) return;
+
+      // Determine call kind
+      const callKind = childSpan.kind === "SPAN_KIND_PRODUCER" || childSpan.kind === "SPAN_KIND_CONSUMER"
+        ? "async"
+        : "sync";
+
+      // Determine to ID: use spanId + "op" if operation exists, otherwise just spanId
+      const toId = childDescription.operation && childDescription.operation !== ""
+        ? escapeMermaidId(childSpan.spanId + "op")
+        : escapeMermaidId(childSpan.spanId);
+
+      // Render call (Component3Generator shows empty label)
+      if (callKind === "async") {
+        lines.push(`    ${fromId} -.-> ${toId}`);
+      } else {
+        lines.push(`    ${fromId} --> ${toId}`);
+      }
+    });
+  });
+}
+
+/**
+ * Applies styling to spans based on their component kind (Component3Generator style)
+ * @param {string[]} lines - Output lines array
+ * @param {TraceModel} trace - Trace model
+ */
+function applySpanStyling(lines, trace) {
+  // Add class definitions for different component kinds
+  lines.push("");
+  lines.push("    classDef start fill:#61afef,stroke:#4a90e2,stroke-width:2px");
+  lines.push("    classDef endpoint fill:#98c379,stroke:#7ba05a,stroke-width:2px");
+  lines.push("    classDef service fill:#c678dd,stroke:#9b59b6,stroke-width:2px");
+  lines.push("    classDef actor fill:#e5c07b,stroke:#d19a66,stroke-width:2px");
+  lines.push("    classDef queue fill:#e86671,stroke:#c0392b,stroke-width:2px");
+  lines.push("    classDef queueconsumer fill:#3498db,stroke:#2980b9,stroke-width:2px");
+  lines.push("    classDef workflow fill:#1abc9c,stroke:#16a085,stroke-width:2px");
+  lines.push("    classDef activity fill:#f39c12,stroke:#e67e22,stroke-width:2px");
+  lines.push("    classDef database fill:#95a5a6,stroke:#7f8c8d,stroke-width:2px");
+  lines.push("    classDef subcomponent fill:#34495e,stroke:#2c3e50,stroke-width:1px,stroke-dasharray: 3 3");
+
+  // Collect all spans and apply styling
+  const allSpans = [];
+  const collectSpans = (node) => {
+    allSpans.push(node);
+    if (node.children) {
+      node.children.forEach(collectSpans);
+    }
+  };
+  trace.roots.forEach(collectSpans);
+
+  const styledComponents = new Set();
+
+  allSpans.forEach((spanNode) => {
+    const span = spanNode.span;
+    const description = spanNode.description;
+    if (!description) return;
+
+    const component = trace.components.get(
+      createComponentKey(description.groupName, description.componentName)
+    );
+    if (!component) return;
+
+    const spanId = escapeMermaidId(span.spanId);
+
+    // Apply style to span component (only once per component)
+    if (!styledComponents.has(spanId)) {
+      const kind = (component.kind || ComponentKind.SERVICE).toLowerCase();
+      const classMap = {
+        start: "start",
+        endpoint: "endpoint",
+        service: "service",
+        actor: "actor",
+        queue: "queue",
+        queueconsumer: "queueconsumer",
+        workflow: "workflow",
+        activity: "activity",
+        database: "database",
+        databasestatement: "database",
+      };
+      const className = classMap[kind] || "service";
+      lines.push(`    class ${spanId} ${className}`);
+      styledComponents.add(spanId);
+    }
+
+    // Apply subcomponent style to operation if it exists
+    if (description.operation && description.operation !== "") {
+      const operationId = escapeMermaidId(span.spanId + "op");
+      if (!styledComponents.has(operationId)) {
+        lines.push(`    class ${operationId} subcomponent`);
+        styledComponents.add(operationId);
+      }
+    }
+  });
+}
+
+/**
  * Initializes the component diagram viewer
  * @param {HTMLElement} host - Container element for the diagram
  * @param {import("./trace.js").TraceSpan[]} spans - Trace spans
@@ -354,11 +747,30 @@ export function initComponentDiagram(host, spans, config = {}) {
   console.log("[initComponentDiagram] Called, host:", host);
   if (!host) {
     console.log("[initComponentDiagram] No host, returning empty functions");
-    return { render: () => {}, update: () => {} };
+    return { render: () => { }, update: () => { } };
   }
 
+  // Find the generator selector dropdown
+  const section = host.closest('.component-diagram-section');
+  const generatorSelect = section?.querySelector('.component-diagram-generator-select');
+
+  let currentConfig = { ...DEFAULT_CONFIG, ...config };
   let mermaidDiagram = "";
   let trace = null;
+
+  // Update config when generator selector changes
+  if (generatorSelect) {
+    generatorSelect.addEventListener('change', (event) => {
+      const generatorValue = parseInt(event.target.value, 10);
+      currentConfig = { ...currentConfig, generator: generatorValue };
+      console.log(`[initComponentDiagram] Generator changed to ${generatorValue}`);
+      render();
+    });
+
+    // Initialize selector value from config
+    const initialGenerator = currentConfig.generator || 3;
+    generatorSelect.value = initialGenerator.toString();
+  }
 
   const render = async () => {
     if (!spans || spans.length === 0) {
@@ -380,8 +792,8 @@ export function initComponentDiagram(host, spans, config = {}) {
       // Build trace model with logs merged
       trace = buildTraceModel(spans, sampleLogRows);
 
-      // Generate Mermaid diagram
-      mermaidDiagram = generateComponentDiagram(trace, config);
+      // Generate Mermaid diagram with current config
+      mermaidDiagram = generateComponentDiagram(trace, currentConfig);
 
       // Log the generated Mermaid diagram for debugging
       console.log("[initComponentDiagram] Generated Mermaid diagram:");
@@ -396,7 +808,7 @@ export function initComponentDiagram(host, spans, config = {}) {
       if (typeof mermaid !== "undefined") {
         mermaid.initialize({
           startOnLoad: true,
-          theme: config.theme || "dark",
+          theme: currentConfig.theme || "dark",
           flowchart: {
             useMaxWidth: true,
             htmlLabels: true,

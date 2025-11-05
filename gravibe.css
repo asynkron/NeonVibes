@@ -481,6 +481,42 @@ body {
   max-width: 60ch;
 }
 
+.component-diagram-control {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.component-diagram-control label {
+  font-size: var(--font-size-sm);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+}
+
+.component-diagram-generator-select {
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  background: var(--ui-surface-2);
+  color: var(--ui-text);
+  padding: 0.5rem 0.75rem;
+  font-size: var(--font-size-sm);
+  font-family: var(--font-base);
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+
+.component-diagram-generator-select:hover {
+  border-color: rgba(148, 163, 184, 0.4);
+}
+
+.component-diagram-generator-select:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+  border-color: var(--accent-primary);
+}
+
 .trace-controls {
   display: flex;
   gap: 1rem;

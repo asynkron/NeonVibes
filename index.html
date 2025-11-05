@@ -461,6 +461,14 @@
     <header class="component-diagram-header">
       <h2>Component Diagram</h2>
       <p>Visualize component relationships and call flows between services and operations.</p>
+      <label class="component-diagram-control">
+        Generator Version
+        <select class="component-diagram-generator-select">
+          <option value="1">Component1Generator (with subcomponents)</option>
+          <option value="2">Component2Generator (component-to-component)</option>
+          <option value="3" selected>Component3Generator (span-level)</option>
+        </select>
+      </label>
     </header>
     <div class="component-diagram-container" data-component="componentDiagram"></div>
   </section>
