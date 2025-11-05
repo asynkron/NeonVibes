@@ -261,6 +261,7 @@ function generateComponent3Diagram(trace, config) {
 
 /**
  * Renders groups and components with subcomponents (Component1Generator style)
+ * Components with subcomponents are rendered as subgraphs containing the subcomponents
  * @param {string[]} lines - Output lines array
  * @param {Map<string, Component>} components - Components map
  * @param {Map<string, Group>} groups - Groups map
@@ -275,7 +276,7 @@ function renderGroupsWithSubcomponents(lines, components, groups, calls) {
     if (!group && component.name !== "nginx") {
       // Component not in a group
       const componentId = escapeMermaidId(component.id);
-      lines.push(`    ${getComponentDeclaration(component)}`);
+      const escapedComponentName = escapeMermaid(component.name);
 
       // Find subcomponents (operations) for this component
       const subcomponents = calls
@@ -287,17 +288,27 @@ function renderGroupsWithSubcomponents(lines, components, groups, calls) {
           return true;
         });
 
-      subcomponents.forEach((subId) => {
-        const call = calls.find(
-          (c) => getSubComponentId(component.id, c.operation) === subId
-        );
-        if (call) {
-          const escapedSubId = escapeMermaidId(subId);
-          const escapedOperation = escapeMermaid(call.operation);
-          lines.push(`    ${escapedSubId}["${escapedOperation}"]`);
-          lines.push(`    ${escapedSubId} -.-> ${componentId}`);
-        }
-      });
+      // If component has subcomponents, render as subgraph; otherwise render as simple component
+      if (subcomponents.length > 0) {
+        // Render component as subgraph containing subcomponents
+        lines.push(`    subgraph ${componentId}["${escapedComponentName}"]`);
+
+        subcomponents.forEach((subId) => {
+          const call = calls.find(
+            (c) => getSubComponentId(component.id, c.operation) === subId
+          );
+          if (call) {
+            const escapedSubId = escapeMermaidId(subId);
+            const escapedOperation = escapeMermaid(call.operation);
+            lines.push(`        ${escapedSubId}["${escapedOperation}"]`);
+          }
+        });
+
+        lines.push(`    end`);
+      } else {
+        // No subcomponents, render as simple component
+        lines.push(`    ${getComponentDeclaration(component)}`);
+      }
     }
   });
 
@@ -312,7 +323,7 @@ function renderGroupsWithSubcomponents(lines, components, groups, calls) {
     components.forEach((component) => {
       if (component.groupId === group.id) {
         const componentId = escapeMermaidId(component.id);
-        lines.push(`        ${getComponentDeclaration(component)}`);
+        const escapedComponentName = escapeMermaid(component.name);
 
         // Find subcomponents (operations) for this component
         const subcomponents = calls
@@ -324,17 +335,27 @@ function renderGroupsWithSubcomponents(lines, components, groups, calls) {
             return true;
           });
 
-        subcomponents.forEach((subId) => {
-          const call = calls.find(
-            (c) => getSubComponentId(component.id, c.operation) === subId
-          );
-          if (call) {
-            const escapedSubId = escapeMermaidId(subId);
-            const escapedOperation = escapeMermaid(call.operation);
-            lines.push(`        ${escapedSubId}["${escapedOperation}"]`);
-            lines.push(`        ${escapedSubId} -.-> ${componentId}`);
-          }
-        });
+        // If component has subcomponents, render as subgraph; otherwise render as simple component
+        if (subcomponents.length > 0) {
+          // Render component as subgraph containing subcomponents
+          lines.push(`        subgraph ${componentId}["${escapedComponentName}"]`);
+
+          subcomponents.forEach((subId) => {
+            const call = calls.find(
+              (c) => getSubComponentId(component.id, c.operation) === subId
+            );
+            if (call) {
+              const escapedSubId = escapeMermaidId(subId);
+              const escapedOperation = escapeMermaid(call.operation);
+              lines.push(`            ${escapedSubId}["${escapedOperation}"]`);
+            }
+          });
+
+          lines.push(`        end`);
+        } else {
+          // No subcomponents, render as simple component
+          lines.push(`        ${getComponentDeclaration(component)}`);
+        }
       }
     });
 
