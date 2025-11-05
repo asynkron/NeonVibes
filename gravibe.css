@@ -1116,9 +1116,6 @@ body {
   cursor: pointer;
 }
 
-.log-row-summary::-webkit-details-marker {
-  display: none;
-}
 
 .log-row__expander-wrapper {
   display: inline-flex;
@@ -1156,7 +1153,7 @@ body {
   transition: transform 0.2s ease;
 }
 
-.log-row[open]>.log-row-summary .log-row__expander::before {
+.log-row--open>.log-row-summary .log-row__expander::before {
   transform: rotate(45deg) translateY(-1px);
 }
 

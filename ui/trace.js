@@ -976,10 +976,9 @@ function renderSpanLogs(node) {
   sortedLogs.forEach((logRow) => {
     const severityGroup = resolveSeverityGroup(logRow);
     const isOpen = expandedLogIds.has(logRow.id);
-    const logElement = h('details', {
-      className: `log-row log-row--severity-${severityGroup}`,
-      dataset: { rowId: logRow.id },
-      open: isOpen
+    const logElement = h('div', {
+      className: `log-row log-row--severity-${severityGroup}${isOpen ? ' log-row--open' : ''}`,
+      dataset: { rowId: logRow.id }
     });
 
     const expander = h('button', {
@@ -1002,20 +1001,44 @@ function renderSpanLogs(node) {
 
     const message = h('span', { className: 'log-row-message' }, buildTemplateFragment(logRow));
 
-    const summary = h('summary', { className: 'log-row-summary' },
+    const summary = h('div', { className: 'log-row-summary' },
       expanderWrapper, timestamp, severity, message
     );
 
-    logElement.appendChild(summary);
-    logElement.appendChild(createMetaSection(logRow));
+    const metaSection = createMetaSection(logRow);
+    if (!isOpen) {
+      metaSection.style.display = 'none';
+    }
 
-    logElement.addEventListener("toggle", () => {
-      if (logElement.open) {
-        expandedLogIds.add(logRow.id);
-      } else {
+    logElement.appendChild(summary);
+    logElement.appendChild(metaSection);
+
+    const toggleHandler = () => {
+      const wasOpen = expandedLogIds.has(logRow.id);
+      if (wasOpen) {
         expandedLogIds.delete(logRow.id);
+        logElement.classList.remove('log-row--open');
+        metaSection.style.display = 'none';
+        setAttrs(expander, { 'aria-expanded': 'false' });
+      } else {
+        expandedLogIds.add(logRow.id);
+        logElement.classList.add('log-row--open');
+        metaSection.style.display = '';
+        setAttrs(expander, { 'aria-expanded': 'true' });
       }
-      setAttrs(expander, { 'aria-expanded': String(logElement.open) });
+    };
+
+    summary.addEventListener('click', (e) => {
+      // Don't toggle if clicking the expander button itself
+      if (e.target === expander || expander.contains(e.target)) {
+        return;
+      }
+      toggleHandler();
+    });
+
+    expander.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleHandler();
     });
 
     logsList.append(logElement);
