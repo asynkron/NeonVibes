@@ -1475,8 +1475,10 @@ function renderSpanSummary(trace, node, timeWindow = { start: 0, end: 100 }, exp
   }
 
   service.innerHTML = `
-    <span class="trace-span__service-indicator" style="${serviceColorStyle}"></span>
-    <span class="trace-span__service-name">${serviceName}</span>
+    <div class="trace-span__service-row">
+      <span class="trace-span__service-indicator" style="${serviceColorStyle}"></span>
+      <span class="trace-span__service-name">${serviceName}</span>
+    </div>
     ${componentName ? `<span class="trace-span__component-name">${componentName}</span>` : ""}
     ${namespace ? `<span class="trace-span__service-namespace">${namespace}</span>` : ""}
     ${scope ? `<span class="trace-span__scope">${scope}</span>` : ""}

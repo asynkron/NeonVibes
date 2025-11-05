@@ -656,9 +656,9 @@ body {
 
 .trace-span__service {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  align-items: center;
+  flex-direction: column;
+  gap: 0.2rem;
+  align-items: flex-start;
   font-family: var(--font-mono);
   font-size: var(--font-size-sm);
   color: var(--text-muted);
@@ -673,6 +673,20 @@ body {
   height: 8px;
   border-radius: 2px;
   flex-shrink: 0;
+  align-self: flex-start;
+}
+
+.trace-span__service-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.trace-span__service-name {
+  font-family: var(--font-base);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent-quaternary);
 }
 
 .trace-span__service:disabled,
