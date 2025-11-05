@@ -92,8 +92,9 @@ export function renderTracePreview(trace, onSelectionChange = null, initialSelec
   // Render each span (preview always shows full range)
   allSpans.forEach((node, index) => {
     const offsets = computeSpanOffsets(trace, node.span, { start: 0, end: 100 });
-    const serviceName = node.span.resource?.serviceName || "unknown-service";
-    const color = getServiceColor(serviceName);
+    // Use groupName || serviceName for color lookup (same as trace component)
+    const colorName = node.description?.groupName || node.span.resource?.serviceName || "unknown-service";
+    const color = getServiceColor(colorName);
 
     // Calculate Y position: SPAN_GAP + index * (spanHeight + SPAN_GAP)
     const y = SPAN_GAP + index * (spanHeight + SPAN_GAP);
@@ -425,14 +426,15 @@ export function renderTracePreview(trace, onSelectionChange = null, initialSelec
     spanRects.forEach((rect, index) => {
       if (index < allSpans.length) {
         const node = allSpans[index];
-        const serviceName = node.span.resource?.serviceName || "unknown-service";
-        const serviceIndex = trace.serviceNameMapping?.get(serviceName) ?? 0;
+        // Use groupName || serviceName for color lookup (same as trace component)
+        const colorName = node.description?.groupName || node.span.resource?.serviceName || "unknown-service";
+        const serviceIndex = trace.serviceNameMapping?.get(colorName) ?? 0;
         const colorIndex = serviceIndex % paletteLength;
-        const color = computeServiceColor(serviceName);
+        const color = computeServiceColor(colorName);
         const rgba = hexToRgba(color, 0.6);
         rect.setAttribute("fill", rgba);
         if (index < 3) { // Log first 3 spans to avoid spam
-          console.log(`[Trace Preview Update] Span ${index}: service="${serviceName}", index=${serviceIndex}, colorIndex=${colorIndex}, color="${color}", rgba="${rgba}"`);
+          console.log(`[Trace Preview Update] Span ${index}: colorName="${colorName}", groupName="${node.description?.groupName}", serviceName="${node.span.resource?.serviceName}", index=${serviceIndex}, colorIndex=${colorIndex}, color="${color}", rgba="${rgba}"`);
         }
       }
     });
