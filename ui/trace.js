@@ -7,7 +7,7 @@
 
 import { normalizeAnyValue, createLogAttribute, formatNanoseconds, resolveSeverityGroup, abbreviateLogLevel, buildTemplateFragment, createMetaSection, createLogCard } from "./logs.js";
 import { createAttributeTable } from "./attributes.js";
-import { hexToRgb, hexToRgba } from "../core/colors.js";
+import { hexToRgb, hexToRgba, normalizeColorBrightness } from "../core/colors.js";
 import { getColorKeyFromNode } from "../core/identity.js";
 import { computeServiceColorRgb } from "../core/colorService.js";
 import { ComponentKind, extractSpanDescription, createComponentKey, normalizeServiceAndGroup } from "./metaModel.js";
@@ -18,6 +18,7 @@ import { renderSpanSummary } from "./components/spanSummary.js";
 import { renderSpanLogs } from "./components/spanLogs.js";
 import { renderSpanNode } from "./components/spanNode.js";
 import { renderTraceHeader } from "./components/traceHeader.js";
+import { getPaletteColors } from "../core/palette.js";
 
 // Lazy import for sampleLogRows to avoid circular dependency with sampleData.js
 // sampleData.js imports from trace.js, so we can't import it at module level
@@ -767,12 +768,13 @@ function createMarkerTooltip(data) {
   return tooltip;
 }
 
-export function renderSpanMarkers(node, trace, timeWindow = { start: 0, end: 100 }) {
-  // Collect all timestamps: logs and events with their data
+/**
+ * Collects all markers (logs and events) from a span node.
+ * @param {TraceSpanNode} node - The span node
+ * @returns {Array} Array of marker objects with timestamp, type, and data
+ */
+function collectMarkers(node) {
   const markers = [];
-  const span = node.span;
-
-  // Get logs from node (already merged during metamodel build)
   const spanLogs = node.logs || [];
   spanLogs.forEach((logRow) => {
     markers.push({
@@ -782,7 +784,6 @@ export function renderSpanMarkers(node, trace, timeWindow = { start: 0, end: 100
     });
   });
 
-  // Get events from node (already merged during metamodel build)
   const spanEvents = node.events || [];
   spanEvents.forEach((event) => {
     markers.push({
@@ -792,11 +793,197 @@ export function renderSpanMarkers(node, trace, timeWindow = { start: 0, end: 100
     });
   });
 
+  return markers;
+}
+
+/**
+ * Calculates the visible span window boundaries within the time window.
+ * @param {TraceModel} trace - The trace model
+ * @param {TraceSpan} span - The span
+ * @param {Object} timeWindow - Time window { start: 0-100, end: 0-100 }
+ * @returns {{visibleSpanStart: number, visibleSpanEnd: number, visibleSpanDuration: number}} Visible span boundaries
+ */
+function calculateVisibleSpanWindow(trace, span, timeWindow) {
+  const spanStart = toNumberTimestamp(span.startTimeUnixNano);
+  const spanEnd = toNumberTimestamp(span.endTimeUnixNano);
+  const totalDuration = trace.durationNano || Math.max(
+    toNumberTimestamp(trace.endTimeUnixNano) - toNumberTimestamp(trace.startTimeUnixNano),
+    1
+  );
+  const windowStart = timeWindow.start || 0;
+  const windowEnd = timeWindow.end || 100;
+  const traceStart = toNumberTimestamp(trace.startTimeUnixNano);
+  const windowStartTime = traceStart + (totalDuration * windowStart / 100);
+  const visibleSpanStart = Math.max(spanStart, windowStartTime);
+  const visibleSpanEnd = Math.min(spanEnd, traceStart + (totalDuration * windowEnd / 100));
+  const visibleSpanDuration = visibleSpanEnd - visibleSpanStart;
+
+  return { visibleSpanStart, visibleSpanEnd, visibleSpanDuration };
+}
+
+/**
+ * Calculates the position of a marker within the visible span.
+ * @param {number} markerTimestamp - The marker timestamp
+ * @param {number} visibleSpanStart - The visible span start time
+ * @param {number} visibleSpanDuration - The visible span duration
+ * @returns {number} Position percentage (0-100)
+ */
+function calculateMarkerPosition(markerTimestamp, visibleSpanStart, visibleSpanDuration) {
+  if (visibleSpanDuration <= 0) {
+    return 50; // Fallback to center if span has no visible duration
+  }
+  return ((markerTimestamp - visibleSpanStart) / visibleSpanDuration) * 100;
+}
+
+/**
+ * Positions a tooltip relative to the cursor, adjusting for viewport boundaries.
+ * @param {HTMLElement} tooltip - The tooltip element
+ * @param {MouseEvent} event - The mouse event
+ * @param {boolean} skipTransition - Whether to skip transition animation
+ */
+function positionTooltip(tooltip, event, skipTransition = false) {
+  const mouseX = event.clientX;
+  const mouseY = event.clientY;
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+
+  const tooltipRect = tooltip.getBoundingClientRect();
+
+  // Position tooltip below and slightly offset from cursor
+  let left = mouseX;
+  let top = mouseY + 12;
+
+  // Adjust if tooltip goes off screen horizontally
+  const tooltipLeft = mouseX - tooltipRect.width / 2;
+  const tooltipRight = mouseX + tooltipRect.width / 2;
+
+  if (tooltipLeft < 8) {
+    left = tooltipRect.width / 2 + 8;
+  } else if (tooltipRight > viewportWidth - 8) {
+    left = viewportWidth - tooltipRect.width / 2 - 8;
+  }
+
+  // Adjust if tooltip goes off screen vertically
+  const tooltipBottom = top + tooltipRect.height;
+  if (tooltipBottom > viewportHeight - 8) {
+    top = mouseY - tooltipRect.height - 12;
+  }
+
+  // Set position
+  tooltip.style.left = `${left}px`;
+  tooltip.style.top = `${top}px`;
+
+  // Apply transform
+  if (skipTransition) {
+    tooltip.style.transition = "none";
+  }
+  const isShowing = tooltip.classList.contains("show");
+  tooltip.style.transform = `translateX(-50%) translateY(${isShowing ? "0" : "-4px"})`;
+
+  // Re-enable transition after setting initial position
+  if (skipTransition) {
+    requestAnimationFrame(() => {
+      tooltip.style.transition = "";
+    });
+  }
+}
+
+/**
+ * Sets up hover event handlers for a marker.
+ * @param {HTMLElement} markerElement - The marker element
+ * @param {HTMLElement} tooltip - The tooltip element
+ * @param {Object} currentTooltip - Reference to current tooltip (mutable object)
+ */
+function setupMarkerHover(markerElement, tooltip, currentTooltip) {
+  let hideTimeout = null;
+
+  markerElement.addEventListener("mouseenter", (e) => {
+    // Cancel any pending hide timeout
+    if (hideTimeout) {
+      clearTimeout(hideTimeout);
+      hideTimeout = null;
+    }
+
+    // Remove any existing tooltip
+    if (currentTooltip.value && currentTooltip.value !== tooltip) {
+      currentTooltip.value.classList.remove("show");
+      setTimeout(() => {
+        currentTooltip.value.style.display = "none";
+      }, 300);
+    }
+
+    // Set display first so we can measure
+    tooltip.style.display = "block";
+    currentTooltip.value = tooltip;
+
+    // Position first with transition disabled to set initial state
+    positionTooltip(tooltip, e, true);
+
+    // Show immediately
+    tooltip.classList.add("show");
+    positionTooltip(tooltip, e);
+
+    const moveHandler = (event) => {
+      positionTooltip(tooltip, event);
+    };
+
+    markerElement.addEventListener("mousemove", moveHandler);
+    markerElement._moveHandler = moveHandler;
+  });
+
+  markerElement.addEventListener("mouseleave", () => {
+    tooltip.classList.remove("show");
+
+    // Clear any existing timeout
+    if (hideTimeout) {
+      clearTimeout(hideTimeout);
+    }
+
+    if (markerElement._moveHandler) {
+      markerElement.removeEventListener("mousemove", markerElement._moveHandler);
+      markerElement._moveHandler = null;
+    }
+
+    // Clear currentTooltip immediately if this is the current tooltip
+    if (currentTooltip.value === tooltip) {
+      currentTooltip.value = null;
+    }
+
+    // Wait for fade out before hiding
+    hideTimeout = setTimeout(() => {
+      if (!markerElement.matches(":hover")) {
+        tooltip.style.display = "none";
+      }
+      hideTimeout = null;
+    }, 300);
+  });
+}
+
+/**
+ * Creates a span marker element.
+ * @param {Object} marker - The marker data
+ * @param {number} positionPercent - The position percentage (0-100)
+ * @returns {HTMLElement} The marker element
+ */
+function createSpanMarker(marker, positionPercent) {
+  const markerClassName = marker.type === 'log'
+    ? `trace-span__marker trace-span__marker--log trace-span__marker--severity-${resolveSeverityGroup(marker.logRow)}`
+    : `trace-span__marker trace-span__marker--${marker.type}`;
+
+  const markerElement = h('div', { className: markerClassName });
+  markerElement.style.left = `${positionPercent}%`;
+
+  return markerElement;
+}
+
+export function renderSpanMarkers(node, trace, timeWindow = { start: 0, end: 100 }) {
+  const markers = collectMarkers(node);
+
   if (markers.length === 0) {
     return null;
   }
 
-  // Calculate span duration and offsets
+  const span = node.span;
   const spanStart = toNumberTimestamp(span.startTimeUnixNano);
   const spanEnd = toNumberTimestamp(span.endTimeUnixNano);
   const spanDuration = spanEnd - spanStart;
@@ -805,30 +992,16 @@ export function renderSpanMarkers(node, trace, timeWindow = { start: 0, end: 100
     return null;
   }
 
-  // Apply time window to calculate visible span range
   const offsets = computeSpanOffsets(trace, span, timeWindow);
   if (offsets.widthPercent === 0) {
     return null;
   }
 
   const container = h('div', { className: 'trace-span__markers' });
+  const { visibleSpanStart, visibleSpanEnd, visibleSpanDuration } = calculateVisibleSpanWindow(trace, span, timeWindow);
 
-  // Calculate the visible span window boundaries
-  const totalDuration = trace.durationNano || Math.max(
-    toNumberTimestamp(trace.endTimeUnixNano) - toNumberTimestamp(trace.startTimeUnixNano),
-    1
-  );
-  const windowStart = timeWindow.start || 0;
-  const windowEnd = timeWindow.end || 100;
-  const windowWidth = windowEnd - windowStart;
-  const traceStart = toNumberTimestamp(trace.startTimeUnixNano);
-  const windowStartTime = traceStart + (totalDuration * windowStart / 100);
-  const visibleSpanStart = Math.max(spanStart, windowStartTime);
-  const visibleSpanEnd = Math.min(spanEnd, traceStart + (totalDuration * windowEnd / 100));
-  const visibleSpanDuration = visibleSpanEnd - visibleSpanStart;
-
-  // Create a tooltip container that will be reused
-  let currentTooltip = null;
+  // Create a tooltip container that will be reused (using mutable object pattern)
+  const currentTooltip = { value: null };
 
   // Create markers for each timestamp
   markers.forEach((marker) => {
@@ -844,21 +1017,13 @@ export function renderSpanMarkers(node, trace, timeWindow = { start: 0, end: 100
       return;
     }
 
-    // Calculate position within the visible span (0-100% of visible span duration)
-    const positionWithinVisibleSpan = visibleSpanDuration > 0
-      ? ((markerTimestamp - visibleSpanStart) / visibleSpanDuration) * 100
-      : 50; // Fallback to center if span has no visible duration
+    // Calculate position within the visible span
+    const positionPercent = calculateMarkerPosition(markerTimestamp, visibleSpanStart, visibleSpanDuration);
 
-    // For log markers, determine severity and apply color class
-    const markerClassName = marker.type === 'log'
-      ? `trace-span__marker trace-span__marker--log trace-span__marker--severity-${resolveSeverityGroup(marker.logRow)}`
-      : `trace-span__marker trace-span__marker--${marker.type}`;
-    
-    const markerElement = h('div', { className: markerClassName });
+    // Create marker element
+    const markerElement = createSpanMarker(marker, positionPercent);
 
-    markerElement.style.left = `${positionWithinVisibleSpan}%`;
-
-    // Create tooltip for this marker and append to document.body instead
+    // Create tooltip
     const tooltip = createMarkerTooltip(marker);
     tooltip.style.display = "none";
     tooltip.style.left = "0px";
@@ -867,122 +1032,8 @@ export function renderSpanMarkers(node, trace, timeWindow = { start: 0, end: 100
     document.body.appendChild(tooltip);
     markerElement.dataset.tooltipId = `tooltip-${Date.now()}-${Math.random()}`;
 
-    // Store timeout reference for cleanup
-    let hideTimeout = null;
-
-    // Add hover handlers
-    markerElement.addEventListener("mouseenter", (e) => {
-      // Cancel any pending hide timeout
-      if (hideTimeout) {
-        clearTimeout(hideTimeout);
-        hideTimeout = null;
-      }
-
-      // Remove any existing tooltip
-      if (currentTooltip && currentTooltip !== tooltip) {
-        currentTooltip.classList.remove("show");
-        // Wait for fade out before hiding
-        setTimeout(() => {
-          currentTooltip.style.display = "none";
-        }, 300);
-      }
-
-      // Set display first so we can measure
-      tooltip.style.display = "block";
-      currentTooltip = tooltip;
-
-      // Position tooltip relative to cursor
-      const updateTooltipPosition = (event, skipTransition = false) => {
-        const mouseX = event.clientX;
-        const mouseY = event.clientY;
-        const viewportWidth = window.innerWidth;
-        const viewportHeight = window.innerHeight;
-
-        // Get tooltip dimensions
-        const tooltipRect = tooltip.getBoundingClientRect();
-
-        // Position tooltip below and slightly offset from cursor
-        let left = mouseX;
-        let top = mouseY + 12;
-
-        // Adjust if tooltip goes off screen horizontally
-        const tooltipLeft = mouseX - tooltipRect.width / 2;
-        const tooltipRight = mouseX + tooltipRect.width / 2;
-
-        if (tooltipLeft < 8) {
-          left = tooltipRect.width / 2 + 8;
-        } else if (tooltipRight > viewportWidth - 8) {
-          left = viewportWidth - tooltipRect.width / 2 - 8;
-        }
-
-        // Adjust if tooltip goes off screen vertically
-        const tooltipBottom = top + tooltipRect.height;
-        if (tooltipBottom > viewportHeight - 8) {
-          top = mouseY - tooltipRect.height - 12;
-        }
-
-        // Set position
-        tooltip.style.left = `${left}px`;
-        tooltip.style.top = `${top}px`;
-
-        // Apply transform - if skipping transition, set directly without animation
-        if (skipTransition) {
-          tooltip.style.transition = "none";
-        }
-        const isShowing = tooltip.classList.contains("show");
-        tooltip.style.transform = `translateX(-50%) translateY(${isShowing ? "0" : "-4px"})`;
-
-        // Re-enable transition after setting initial position
-        if (skipTransition) {
-          requestAnimationFrame(() => {
-            tooltip.style.transition = "";
-          });
-        }
-      };
-
-      // Position first with transition disabled to set initial state
-      updateTooltipPosition(e, true);
-
-      // Show immediately - don't wait for animation frame
-      tooltip.classList.add("show");
-      updateTooltipPosition(e);
-
-      const moveHandler = (event) => {
-        updateTooltipPosition(event);
-      };
-
-      markerElement.addEventListener("mousemove", moveHandler);
-      markerElement._moveHandler = moveHandler;
-    });
-
-    markerElement.addEventListener("mouseleave", () => {
-      // Only hide if mouse is actually leaving
-      tooltip.classList.remove("show");
-
-      // Clear any existing timeout
-      if (hideTimeout) {
-        clearTimeout(hideTimeout);
-      }
-
-      if (markerElement._moveHandler) {
-        markerElement.removeEventListener("mousemove", markerElement._moveHandler);
-        markerElement._moveHandler = null;
-      }
-
-      // Clear currentTooltip immediately if this is the current tooltip
-      if (currentTooltip === tooltip) {
-        currentTooltip = null;
-      }
-
-      // Wait for fade out before hiding
-      hideTimeout = setTimeout(() => {
-        // Double-check that mouse is not on the element
-        if (!markerElement.matches(":hover")) {
-          tooltip.style.display = "none";
-        }
-        hideTimeout = null;
-      }, 300);
-    });
+    // Setup hover handlers
+    setupMarkerHover(markerElement, tooltip, currentTooltip);
 
     // Clean up tooltip when marker is removed
     markerElement._cleanupTooltip = () => {
@@ -1721,6 +1772,135 @@ function createSplitter(container) {
   return splitter;
 }
 
+/**
+ * Computes service color from palette colors.
+ * @param {string} serviceName - The service name
+ * @param {TraceModel} trace - The trace model
+ * @param {Array<string>} paletteColors - Array of palette colors
+ * @returns {string} The computed color hex
+ */
+function computeTraceServiceColor(serviceName, trace, paletteColors) {
+  const paletteLength = paletteColors.length;
+  const serviceIndex = trace.serviceNameMapping?.get(serviceName) ?? 0;
+  const colorIndex = serviceIndex % paletteLength;
+  const paletteColor = paletteColors[colorIndex];
+  if (!paletteColor) {
+    return "#61afef"; // Fallback if palette color is missing
+  }
+  return normalizeColorBrightness(paletteColor, 50, 0.7);
+}
+
+/**
+ * Updates service color indicators in span summaries.
+ * @param {HTMLElement} host - The host element
+ * @param {TraceModel} trace - The trace model
+ * @param {Array<string>} paletteColors - Array of palette colors
+ */
+function updateServiceColors(host, trace, paletteColors) {
+  const serviceButtons = host.querySelectorAll(".trace-span__service");
+  console.log(`[Trace Viewer Update] Found ${serviceButtons.length} service buttons to update`);
+  let updateCount = 0;
+  serviceButtons.forEach((serviceButton) => {
+    const serviceName = serviceButton.querySelector(".trace-span__service-name")?.textContent || "unknown-service";
+    const serviceIndex = trace.serviceNameMapping?.get(serviceName) ?? 0;
+    const normalizedColor = computeTraceServiceColor(serviceName, trace, paletteColors);
+    const rgb = hexToRgb(normalizedColor);
+
+    if (rgb) {
+      const serviceColorStyle = `background-color: rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.6);`;
+      const indicator = serviceButton.querySelector(".trace-span__service-indicator");
+      if (indicator) {
+        indicator.style.cssText = serviceColorStyle;
+        updateCount++;
+        if (updateCount <= 3) {
+          console.log(`[Trace Viewer Update] Service indicator: service="${serviceName}", index=${serviceIndex}, color="${normalizedColor}", rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.6)`);
+        }
+      }
+    }
+  });
+  console.log(`[Trace Viewer Update] Updated ${updateCount} service indicators`);
+}
+
+/**
+ * Updates span bar colors (CSS custom properties).
+ * @param {HTMLElement} host - The host element
+ * @param {TraceModel} trace - The trace model
+ * @param {Array<string>} paletteColors - Array of palette colors
+ */
+function updateSpanBars(host, trace, paletteColors) {
+  const bars = host.querySelectorAll(".trace-span__bar");
+  console.log(`[Trace Viewer Update] Found ${bars.length} span bars to update`);
+  let barUpdateCount = 0;
+  bars.forEach((bar) => {
+    const summary = bar.closest(".trace-span__summary");
+    if (!summary) return;
+
+    const serviceButton = summary.querySelector(".trace-span__service");
+    if (!serviceButton) return;
+
+    const serviceName = serviceButton.querySelector(".trace-span__service-name")?.textContent || "unknown-service";
+    const serviceIndex = trace.serviceNameMapping?.get(serviceName) ?? 0;
+    const normalizedColor = computeTraceServiceColor(serviceName, trace, paletteColors);
+    const rgb = hexToRgb(normalizedColor);
+
+    if (rgb) {
+      const colorValue = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.6)`;
+      const shadowValue = `0 0 18px rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.25)`;
+      bar.style.setProperty("--service-color", colorValue);
+      bar.style.setProperty("--service-shadow", shadowValue);
+      barUpdateCount++;
+      if (barUpdateCount <= 3) {
+        console.log(`[Trace Viewer Update] Span bar: service="${serviceName}", index=${serviceIndex}, color="${normalizedColor}", --service-color="${colorValue}"`);
+      }
+    }
+  });
+  console.log(`[Trace Viewer Update] Updated ${barUpdateCount} span bars`);
+}
+
+/**
+ * Updates the SVG preview component.
+ * @param {HTMLElement} host - The host element
+ * @param {Object} viewState - The view state
+ * @param {Object} previewComponent - The preview component reference
+ */
+function updatePreview(host, viewState, previewComponent) {
+  const currentPreview = viewState?.preview || previewComponent;
+  if (currentPreview && typeof currentPreview.update === "function") {
+    currentPreview.update();
+  } else {
+    const previewElement = host.querySelector(".trace-preview");
+    if (previewElement && previewElement.__previewComponent) {
+      previewElement.__previewComponent.update();
+    }
+  }
+}
+
+/**
+ * Creates the update function for the trace viewer.
+ * @param {HTMLElement} host - The host element
+ * @param {TraceModel} trace - The trace model
+ * @param {Object} viewState - The view state (mutable reference)
+ * @param {Object} previewComponent - The preview component reference (mutable reference)
+ * @returns {Function} The update function
+ */
+function createTraceViewerUpdate(host, trace, viewState, previewComponent) {
+  return () => {
+    console.log("[Trace Viewer Update] update() method called!");
+    void host.offsetWidth;
+
+    const paletteColors = getPaletteColors();
+    console.log("[Trace Viewer Update] Palette colors read:", paletteColors);
+    if (paletteColors.length === 0) {
+      console.warn("[Trace Viewer Update] No palette colors available, skipping update");
+      return;
+    }
+
+    updateServiceColors(host, trace, paletteColors);
+    updateSpanBars(host, trace, paletteColors);
+    updatePreview(host, viewState, previewComponent);
+  };
+}
+
 export function initTraceViewer(host, spans, logRows = null) {
   console.log("[initTraceViewer] Called, host:", host);
   if (!host) {
@@ -1728,128 +1908,16 @@ export function initTraceViewer(host, spans, logRows = null) {
     return { render: () => { }, update: () => { } };
   }
 
-  // Use provided log rows, or get sample log rows if not provided
-  // Log rows should include:
-  // - Regular logs (from OTel data or generateLogsForSpan)
-  // - Virtual logs: span start, events as logs, span end (from appendLogsFromSpans/createVirtualSpanLogs)
-  // buildTraceModel will merge these into span nodes and ensure virtual logs are present
   const finalLogRows = logRows || getSampleLogRows();
-
-  // Build trace model with logs and events merged into span nodes during build
-  // This performs the same lookup that the trace component used to do during rendering,
-  // but now it happens once during build instead of repeatedly during render
   const trace = buildTraceModel(spans, finalLogRows);
   let viewState = renderTrace(host, trace);
-  let previewComponent = viewState.preview; // Store preview reference
+  let previewComponent = viewState.preview;
   console.log("[initTraceViewer] Trace viewer initialized, previewComponent:", previewComponent);
 
-  /**
-   * Recomputes and updates all computed colors in the trace viewer
-   * without full re-rendering. Updates:
-   * - Service color indicators in span summaries
-   * - Span bar colors (CSS custom properties)
-   * - SVG preview background color
-   * - SVG preview span rectangle fill colors
-   */
-  const update = () => {
-    console.log("[Trace Viewer Update] update() method called!");
-    // Force a reflow to ensure CSS variables are applied
-    void host.offsetWidth;
-
-    // Always get the latest preview component reference
-    const currentPreview = viewState?.preview || previewComponent;
-
-    // Read fresh palette colors from CSS variables
-    const paletteColors = getPaletteColors();
-    console.log("[Trace Viewer Update] Palette colors read:", paletteColors);
-    if (paletteColors.length === 0) {
-      // If no palette colors available, skip update
-      console.warn("[Trace Viewer Update] No palette colors available, skipping update");
-      return;
-    }
-    const paletteLength = paletteColors.length;
-
-    // Helper to compute service color
-    const computeServiceColor = (serviceName) => {
-      const serviceIndex = trace.serviceNameMapping?.get(serviceName) ?? 0;
-      const colorIndex = serviceIndex % paletteLength;
-      const paletteColor = paletteColors[colorIndex];
-      if (!paletteColor) {
-        // Fallback if palette color is missing
-        return "#61afef";
-      }
-      return normalizeColorBrightness(paletteColor, 50, 0.7);
-    };
-
-    // Update service color indicators in span summaries
-    const serviceButtons = host.querySelectorAll(".trace-span__service");
-    console.log(`[Trace Viewer Update] Found ${serviceButtons.length} service buttons to update`);
-    let updateCount = 0;
-    serviceButtons.forEach((serviceButton) => {
-      const serviceName = serviceButton.querySelector(".trace-span__service-name")?.textContent || "unknown-service";
-      const serviceIndex = trace.serviceNameMapping?.get(serviceName) ?? 0;
-      const normalizedColor = computeServiceColor(serviceName);
-      const rgb = hexToRgb(normalizedColor);
-
-      if (rgb) {
-        const serviceColorStyle = `background-color: rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.6);`;
-        const indicator = serviceButton.querySelector(".trace-span__service-indicator");
-        if (indicator) {
-          indicator.style.cssText = serviceColorStyle;
-          updateCount++;
-          if (updateCount <= 3) { // Log first 3 to avoid spam
-            console.log(`[Trace Viewer Update] Service indicator: service="${serviceName}", index=${serviceIndex}, color="${normalizedColor}", rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.6)`);
-          }
-        }
-      }
-    });
-    console.log(`[Trace Viewer Update] Updated ${updateCount} service indicators`);
-
-    // Update span bar colors (CSS custom properties)
-    const bars = host.querySelectorAll(".trace-span__bar");
-    console.log(`[Trace Viewer Update] Found ${bars.length} span bars to update`);
-    let barUpdateCount = 0;
-    bars.forEach((bar) => {
-      // Find the service name from the parent span
-      const summary = bar.closest(".trace-span__summary");
-      if (!summary) return;
-
-      const serviceButton = summary.querySelector(".trace-span__service");
-      if (!serviceButton) return;
-
-      const serviceName = serviceButton.querySelector(".trace-span__service-name")?.textContent || "unknown-service";
-      const serviceIndex = trace.serviceNameMapping?.get(serviceName) ?? 0;
-      const normalizedColor = computeServiceColor(serviceName);
-      const rgb = hexToRgb(normalizedColor);
-
-      if (rgb) {
-        const colorValue = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.6)`;
-        const shadowValue = `0 0 18px rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.25)`;
-        bar.style.setProperty("--service-color", colorValue);
-        bar.style.setProperty("--service-shadow", shadowValue);
-        barUpdateCount++;
-        if (barUpdateCount <= 3) { // Log first 3 to avoid spam
-          console.log(`[Trace Viewer Update] Span bar: service="${serviceName}", index=${serviceIndex}, color="${normalizedColor}", --service-color="${colorValue}"`);
-        }
-      }
-    });
-    console.log(`[Trace Viewer Update] Updated ${barUpdateCount} span bars`);
-
-    // Update SVG preview component using its update method
-    if (currentPreview && typeof currentPreview.update === "function") {
-      currentPreview.update();
-    } else {
-      // Fallback: try to find and update preview via DOM query
-      const previewElement = host.querySelector(".trace-preview");
-      if (previewElement && previewElement.__previewComponent) {
-        previewElement.__previewComponent.update();
-      }
-    }
-  };
+  const update = createTraceViewerUpdate(host, trace, viewState, previewComponent);
 
   const render = () => {
     viewState = renderTrace(host, trace, viewState);
-    // Update preview reference after re-render
     previewComponent = viewState.preview;
   };
 

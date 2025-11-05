@@ -710,16 +710,15 @@ function renderCandlestick(dataset, container) {
   return chart;
 }
 
-function renderGauge(dataset, container) {
-  const chart = createChartInstance(container);
-
-  // Clamp values so the gauge never renders beyond its 0-100 domain.
-  const value = Math.min(Math.max(dataset.value ?? 0, 0), 100);
-  const target = Math.min(Math.max(dataset.target ?? 0, 0), 100);
-  const valueRatio = value / 100;
-  const targetRatio = target / 100;
-
-  applyChartOption(chart, {
+/**
+ * Creates the base gauge configuration.
+ * @param {string} label - The dataset label
+ * @param {number} value - The current value
+ * @param {number} target - The target value
+ * @returns {Object} Base gauge configuration
+ */
+function createBaseGaugeConfig(label, value, target) {
+  return {
     backgroundColor: "transparent",
     tooltip: {
       trigger: "item",
@@ -730,224 +729,239 @@ function renderGauge(dataset, container) {
         color: "#f8fafc",
       },
       formatter: () =>
-        `${dataset.label}<br/>Current: ${value}%<br/>Target: ${target}%`,
+        `${label}<br/>Current: ${value}%<br/>Target: ${target}%`,
     },
-    series: [
-      {
-        // Wide halo that pushes a bloom behind the active charge arc.
-        name: `${dataset.label} Halo`,
-        type: "gauge",
-        startAngle: 220,
-        endAngle: -40,
-        min: 0,
-        max: 100,
-        radius: "104%",
-        axisLine: {
-          lineStyle: {
-            width: 28,
-            color: [
-              [valueRatio, colorWithAlpha("accentPrimary", 0.18)],
-              [1, "rgba(15, 23, 42, 0)"],
-            ],
-            shadowBlur: withGlowBlur(45),
-            shadowColor: withGlowColor("accentPrimary", 0.6),
-          },
-        },
-        pointer: {
-          show: false,
-        },
-        axisTick: {
-          show: false,
-        },
-        splitLine: {
-          show: false,
-        },
-        axisLabel: {
-          show: false,
-        },
-        detail: {
-          show: false,
-        },
-        title: {
-          show: false,
-        },
-        silent: true,
-        z: 0,
-      },
-      {
-        // Outer track that highlights the remaining distance to the target threshold.
-        name: `${dataset.label} Track`,
-        type: "gauge",
-        startAngle: 220,
-        endAngle: -40,
-        min: 0,
-        max: 100,
-        radius: "100%",
-        axisLine: {
-          lineStyle: {
-            width: 20,
-            color: [
-              [targetRatio, colorWithAlpha("accentPrimary", 0.15)],
-              [1, "rgba(15, 23, 42, 0.45)"],
-            ],
-            shadowBlur: withGlowBlur(20),
-            shadowColor: withGlowColor("accentPrimary", 0.28),
-          },
-        },
-        splitNumber: 5,
-        splitLine: {
-          distance: -4,
-          length: 12,
-          lineStyle: {
-            color: colorWithAlpha("accentPrimary", 0.25),
-          },
-        },
-        axisLabel: {
-          color: "rgba(148, 163, 184, 0.65)",
-          fontFamily: "Share Tech Mono, monospace",
-        },
-        axisTick: {
-          show: false,
-        },
-        pointer: {
-          show: false,
-        },
-        detail: {
-          show: false,
-        },
-        title: {
-          show: false,
-        },
-        silent: true,
-        z: 1,
-      },
-      {
-        // Inner neon arc that animates to the current value.
-        name: dataset.label,
-        type: "gauge",
-        startAngle: 220,
-        endAngle: -40,
-        min: 0,
-        max: 100,
-        radius: "84%",
-        progress: {
-          show: true,
-          roundCap: true,
-          width: 16,
-          itemStyle: {
-            color: colorWithAlpha("accentPrimary", 0.95),
-            borderColor: chartOutlineColor,
-            borderWidth: withOutlineWidth(1),
-            shadowBlur: withGlowBlur(26),
-            shadowColor: withGlowColor("accentPrimary", 0.55),
-          },
-        },
-        axisLine: {
-          lineStyle: {
-            width: 16,
-            color: [
-              [valueRatio, colorWithAlpha("accentPrimary", 0.95)],
-              [1, "rgba(15, 23, 42, 0.05)"],
-            ],
-            shadowBlur: withGlowBlur(32),
-            shadowColor: withGlowColor("accentPrimary", 0.45),
-          },
-        },
-        pointer: {
-          show: false,
-        },
-        axisTick: {
-          show: false,
-        },
-        splitLine: {
-          show: false,
-        },
-        axisLabel: {
-          show: false,
-        },
-        detail: {
-          valueAnimation: true,
-          formatter: "{value}%",
-          color: "rgba(226, 232, 240, 0.9)",
-          fontFamily: "Share Tech Mono, monospace",
-          fontSize: 28,
-          offsetCenter: [0, "40%"],
-        },
-        title: {
-          color: "rgba(226, 232, 240, 0.75)",
-          fontFamily: "Space Grotesk, sans-serif",
-          fontSize: 14,
-          offsetCenter: [0, "70%"],
-        },
-        data: [
-          {
-            value,
-            name: dataset.label,
-          },
+  };
+}
+
+/**
+ * Creates the halo series for the gauge (wide bloom behind the active arc).
+ * @param {string} label - The dataset label
+ * @param {number} valueRatio - The value ratio (0-1)
+ * @returns {Object} Halo series configuration
+ */
+function createGaugeHaloSeries(label, valueRatio) {
+  return {
+    name: `${label} Halo`,
+    type: "gauge",
+    startAngle: 220,
+    endAngle: -40,
+    min: 0,
+    max: 100,
+    radius: "104%",
+    axisLine: {
+      lineStyle: {
+        width: 28,
+        color: [
+          [valueRatio, colorWithAlpha("accentPrimary", 0.18)],
+          [1, "rgba(15, 23, 42, 0)"],
         ],
-        z: 3,
+        shadowBlur: withGlowBlur(45),
+        shadowColor: withGlowColor("accentPrimary", 0.6),
       },
-      {
-        // Thin pointer that marks the target threshold.
-        name: "Target",
-        type: "gauge",
-        startAngle: 220,
-        endAngle: -40,
-        min: 0,
-        max: 100,
-        radius: "100%",
-        axisLine: {
-          lineStyle: {
-            width: 0,
-          },
-        },
-        pointer: {
-          show: true,
-          width: 6,
-          length: "68%",
-          itemStyle: {
-            color: colorWithAlpha("accentSecondary", 0.95),
-            borderColor: chartOutlineColor,
-            borderWidth: withOutlineWidth(1),
-            shadowBlur: withGlowBlur(20),
-            shadowColor: withGlowColor("accentSecondary", 0.45),
-          },
-        },
-        anchor: {
-          show: true,
-          showAbove: true,
-          size: 16,
-          itemStyle: {
-            color: colorWithAlpha("accentPrimary", 0.95),
-            borderColor: chartOutlineColor,
-            borderWidth: withOutlineWidth(4),
-            shadowBlur: withGlowBlur(18),
-            shadowColor: withGlowColor("accentPrimary", 0.45),
-          },
-        },
-        axisTick: {
-          show: false,
-        },
-        splitLine: {
-          show: false,
-        },
-        axisLabel: {
-          show: false,
-        },
-        detail: {
-          show: false,
-        },
-        title: {
-          show: false,
-        },
-        data: [
-          {
-            value: target,
-          },
+    },
+    pointer: { show: false },
+    axisTick: { show: false },
+    splitLine: { show: false },
+    axisLabel: { show: false },
+    detail: { show: false },
+    title: { show: false },
+    silent: true,
+    z: 0,
+  };
+}
+
+/**
+ * Creates the track series for the gauge (outer track highlighting target).
+ * @param {string} label - The dataset label
+ * @param {number} targetRatio - The target ratio (0-1)
+ * @returns {Object} Track series configuration
+ */
+function createGaugeTrackSeries(label, targetRatio) {
+  return {
+    name: `${label} Track`,
+    type: "gauge",
+    startAngle: 220,
+    endAngle: -40,
+    min: 0,
+    max: 100,
+    radius: "100%",
+    axisLine: {
+      lineStyle: {
+        width: 20,
+        color: [
+          [targetRatio, colorWithAlpha("accentPrimary", 0.15)],
+          [1, "rgba(15, 23, 42, 0.45)"],
         ],
-        z: 5,
+        shadowBlur: withGlowBlur(20),
+        shadowColor: withGlowColor("accentPrimary", 0.28),
+      },
+    },
+    splitNumber: 5,
+    splitLine: {
+      distance: -4,
+      length: 12,
+      lineStyle: {
+        color: colorWithAlpha("accentPrimary", 0.25),
+      },
+    },
+    axisLabel: {
+      color: "rgba(148, 163, 184, 0.65)",
+      fontFamily: "Share Tech Mono, monospace",
+    },
+    axisTick: { show: false },
+    pointer: { show: false },
+    detail: { show: false },
+    title: { show: false },
+    silent: true,
+    z: 1,
+  };
+}
+
+/**
+ * Creates the progress series for the gauge (inner neon arc with value display).
+ * @param {string} label - The dataset label
+ * @param {number} value - The current value
+ * @param {number} valueRatio - The value ratio (0-1)
+ * @returns {Object} Progress series configuration
+ */
+function createGaugeProgressSeries(label, value, valueRatio) {
+  return {
+    name: label,
+    type: "gauge",
+    startAngle: 220,
+    endAngle: -40,
+    min: 0,
+    max: 100,
+    radius: "84%",
+    progress: {
+      show: true,
+      roundCap: true,
+      width: 16,
+      itemStyle: {
+        color: colorWithAlpha("accentPrimary", 0.95),
+        borderColor: chartOutlineColor,
+        borderWidth: withOutlineWidth(1),
+        shadowBlur: withGlowBlur(26),
+        shadowColor: withGlowColor("accentPrimary", 0.55),
+      },
+    },
+    axisLine: {
+      lineStyle: {
+        width: 16,
+        color: [
+          [valueRatio, colorWithAlpha("accentPrimary", 0.95)],
+          [1, "rgba(15, 23, 42, 0.05)"],
+        ],
+        shadowBlur: withGlowBlur(32),
+        shadowColor: withGlowColor("accentPrimary", 0.45),
+      },
+    },
+    pointer: { show: false },
+    axisTick: { show: false },
+    splitLine: { show: false },
+    axisLabel: { show: false },
+    detail: {
+      valueAnimation: true,
+      formatter: "{value}%",
+      color: "rgba(226, 232, 240, 0.9)",
+      fontFamily: "Share Tech Mono, monospace",
+      fontSize: 28,
+      offsetCenter: [0, "40%"],
+    },
+    title: {
+      color: "rgba(226, 232, 240, 0.75)",
+      fontFamily: "Space Grotesk, sans-serif",
+      fontSize: 14,
+      offsetCenter: [0, "70%"],
+    },
+    data: [
+      {
+        value,
+        name: label,
       },
     ],
+    z: 3,
+  };
+}
+
+/**
+ * Creates the target pointer series for the gauge (thin pointer marking target).
+ * @param {number} target - The target value
+ * @returns {Object} Target pointer series configuration
+ */
+function createGaugeTargetSeries(target) {
+  return {
+    name: "Target",
+    type: "gauge",
+    startAngle: 220,
+    endAngle: -40,
+    min: 0,
+    max: 100,
+    radius: "100%",
+    axisLine: {
+      lineStyle: {
+        width: 0,
+      },
+    },
+    pointer: {
+      show: true,
+      width: 6,
+      length: "68%",
+      itemStyle: {
+        color: colorWithAlpha("accentSecondary", 0.95),
+        borderColor: chartOutlineColor,
+        borderWidth: withOutlineWidth(1),
+        shadowBlur: withGlowBlur(20),
+        shadowColor: withGlowColor("accentSecondary", 0.45),
+      },
+    },
+    anchor: {
+      show: true,
+      showAbove: true,
+      size: 16,
+      itemStyle: {
+        color: colorWithAlpha("accentPrimary", 0.95),
+        borderColor: chartOutlineColor,
+        borderWidth: withOutlineWidth(4),
+        shadowBlur: withGlowBlur(18),
+        shadowColor: withGlowColor("accentPrimary", 0.45),
+      },
+    },
+    axisTick: { show: false },
+    splitLine: { show: false },
+    axisLabel: { show: false },
+    detail: { show: false },
+    title: { show: false },
+    data: [
+      {
+        value: target,
+      },
+    ],
+    z: 5,
+  };
+}
+
+function renderGauge(dataset, container) {
+  const chart = createChartInstance(container);
+
+  // Clamp values so the gauge never renders beyond its 0-100 domain.
+  const value = Math.min(Math.max(dataset.value ?? 0, 0), 100);
+  const target = Math.min(Math.max(dataset.target ?? 0, 0), 100);
+  const valueRatio = value / 100;
+  const targetRatio = target / 100;
+
+  const baseConfig = createBaseGaugeConfig(dataset.label, value, target);
+  const series = [
+    createGaugeHaloSeries(dataset.label, valueRatio),
+    createGaugeTrackSeries(dataset.label, targetRatio),
+    createGaugeProgressSeries(dataset.label, value, valueRatio),
+    createGaugeTargetSeries(target),
+  ];
+
+  applyChartOption(chart, {
+    ...baseConfig,
+    series,
   });
 
   return chart;

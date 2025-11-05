@@ -12,20 +12,17 @@ import { computeSpanOffsets } from "./trace.js";
  * @typedef {import("./trace.js").TraceModel} TraceModel
  */
 
-/**
- * Renders a non-interactive SVG preview of the trace spans.
- * @param {TraceModel} trace
- * @param {Function} onSelectionChange - Callback when selection changes (start, end) as percentages
- * @param {Object} initialSelection - Initial selection state {start: 0-100, end: 0-100}
- * @returns {{ element: SVGSVGElement, update: Function }}
- */
-export function renderTracePreview(trace, onSelectionChange = null, initialSelection = null) {
-  const SVG_HEIGHT = 150;
-  const MIN_SPAN_WIDTH = 2; // Minimum width in pixels for visibility
-  const MIN_SPAN_HEIGHT = 2; // Minimum height in pixels per span
-  const SPAN_GAP = 2; // Gap between span rows
+const SVG_HEIGHT = 150;
+const MIN_SPAN_WIDTH = 2; // Minimum width in pixels for visibility
+const MIN_SPAN_HEIGHT = 2; // Minimum height in pixels per span
+const SPAN_GAP = 2; // Gap between span rows
 
-  // Flatten all spans from the tree structure
+/**
+ * Flattens all spans from the tree structure into a single array.
+ * @param {TraceModel} trace - The trace model
+ * @returns {Array} Array of all span nodes
+ */
+function flattenAllSpans(trace) {
   const allSpans = [];
   const flattenSpans = (nodes) => {
     nodes.forEach((node) => {
@@ -36,34 +33,44 @@ export function renderTracePreview(trace, onSelectionChange = null, initialSelec
     });
   };
   flattenSpans(trace.roots);
+  return allSpans;
+}
 
-  // Calculate row count (one row per span)
-  const rowCount = Math.max(allSpans.length, 1);
-
-  // Calculate span height to fill the SVG height
-  // Total gap space = (rowCount + 1) * SPAN_GAP (gap before first, between, and after last)
+/**
+ * Calculates span height based on row count.
+ * @param {number} rowCount - Number of span rows
+ * @returns {number} Calculated span height
+ */
+function calculateSpanHeight(rowCount) {
   const totalGapSpace = (rowCount + 1) * SPAN_GAP;
   const availableHeight = SVG_HEIGHT - totalGapSpace;
   const calculatedSpanHeight = availableHeight / rowCount;
+  return Math.max(calculatedSpanHeight, MIN_SPAN_HEIGHT);
+}
 
-  // Use minimum height if calculated height is too small
-  const spanHeight = Math.max(calculatedSpanHeight, MIN_SPAN_HEIGHT);
-
-  // Create SVG element
+/**
+ * Creates the SVG element with proper attributes.
+ * @returns {SVGSVGElement} The SVG element
+ */
+function createPreviewSVG() {
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   svg.setAttribute("class", "trace-preview");
   svg.setAttribute("viewBox", `0 0 100 ${SVG_HEIGHT}`);
   svg.setAttribute("preserveAspectRatio", "none");
   svg.style.width = "100%";
   svg.style.height = `${SVG_HEIGHT}px`;
+  return svg;
+}
 
-  // Background - use UI surface color from CSS variables
-  // Read from computed styles to ensure we get the current palette value
+/**
+ * Creates the background rectangle for the preview.
+ * @param {SVGSVGElement} svg - The SVG element
+ */
+function createPreviewBackground(svg) {
   const root = document.documentElement;
   const style = getComputedStyle(root);
   let surfaceColor = style.getPropertyValue("--ui-surface-2").trim();
 
-  // Fallback if CSS variable is not set
   if (!surfaceColor) {
     surfaceColor = "#1e2129"; // Dark fallback
   }
@@ -76,51 +83,66 @@ export function renderTracePreview(trace, onSelectionChange = null, initialSelec
   background.setAttribute("height", `${SVG_HEIGHT}`);
   background.setAttribute("fill", surfaceColor);
   svg.appendChild(background);
+}
 
-  // Get palette colors for service coloring
-  // Render each span (preview always shows full range)
-  allSpans.forEach((node, index) => {
-    const offsets = computeSpanOffsets(trace, node.span, { start: 0, end: 100 });
-    // Use centralized identity helper and color service
-    const colorKey = getColorKeyFromNode(node);
-    const color = computeServiceColor(colorKey, trace);
+/**
+ * Creates a span rectangle element.
+ * @param {Object} node - The span node
+ * @param {TraceModel} trace - The trace model
+ * @param {number} index - The span index
+ * @param {number} spanHeight - The height of each span
+ * @returns {SVGRectElement} The span rectangle
+ */
+function createSpanRect(node, trace, index, spanHeight) {
+  const offsets = computeSpanOffsets(trace, node.span, { start: 0, end: 100 });
+  const colorKey = getColorKeyFromNode(node);
+  const color = computeServiceColor(colorKey, trace);
 
-    // Calculate Y position: SPAN_GAP + index * (spanHeight + SPAN_GAP)
-    const y = SPAN_GAP + index * (spanHeight + SPAN_GAP);
-    const height = spanHeight;
+  const y = SPAN_GAP + index * (spanHeight + SPAN_GAP);
+  let x = offsets.startPercent;
+  let width = offsets.widthPercent;
 
-    // Calculate X position and width (percentage to viewBox units)
-    let x = offsets.startPercent;
-    let width = offsets.widthPercent;
-
-    // Ensure minimum width in viewBox units (viewBox is 0 0 100 150)
-    // For 100 viewBox units wide, 2px min = (2 / actualSVGWidth) * 100
-    // Since viewBox is percentage-based, minWidthPercent should be small
-    // Assuming typical SVG width of ~800px, 2px = 0.25% of viewBox
-    const minWidthPercent = 0.25; // Minimum 2px when SVG is ~800px wide
-    if (width < minWidthPercent) {
-      width = minWidthPercent;
-      // Adjust x to keep span centered if possible
-      const originalCenter = x + offsets.widthPercent / 2;
-      x = Math.max(0, originalCenter - width / 2);
-      // Ensure we don't go past 100%
-      if (x + width > 100) {
-        x = 100 - width;
-      }
+  // Ensure minimum width in viewBox units
+  const minWidthPercent = 0.25;
+  if (width < minWidthPercent) {
+    width = minWidthPercent;
+    const originalCenter = x + offsets.widthPercent / 2;
+    x = Math.max(0, originalCenter - width / 2);
+    if (x + width > 100) {
+      x = 100 - width;
     }
+  }
 
-    // Create span rectangle
-    const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-    rect.setAttribute("x", `${x}`);
-    rect.setAttribute("y", `${y}`);
-    rect.setAttribute("width", `${width}`);
-    rect.setAttribute("height", `${height}`);
-    rect.setAttribute("rx", "0"); // No rounded corners - straight rectangles
-    rect.setAttribute("fill", hexToRgba(color, 0.6));
+  const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+  rect.setAttribute("x", `${x}`);
+  rect.setAttribute("y", `${y}`);
+  rect.setAttribute("width", `${width}`);
+  rect.setAttribute("height", `${spanHeight}`);
+  rect.setAttribute("rx", "0");
+  rect.setAttribute("fill", hexToRgba(color, 0.6));
+  return rect;
+}
+
+/**
+ * Renders all span rectangles in the preview.
+ * @param {SVGSVGElement} svg - The SVG element
+ * @param {TraceModel} trace - The trace model
+ * @param {Array} allSpans - Array of all span nodes
+ * @param {number} spanHeight - The height of each span
+ */
+function renderPreviewSpans(svg, trace, allSpans, spanHeight) {
+  allSpans.forEach((node, index) => {
+    const rect = createSpanRect(node, trace, index, spanHeight);
     svg.appendChild(rect);
   });
+}
 
-  // Inverted selection overlays (darken non-selected areas)
+/**
+ * Creates selection overlay rectangles (left and right).
+ * @param {SVGSVGElement} svg - The SVG element
+ * @returns {{leftOverlay: SVGRectElement, rightOverlay: SVGRectElement}} The overlay elements
+ */
+function createSelectionOverlays(svg) {
   const leftOverlay = document.createElementNS("http://www.w3.org/2000/svg", "rect");
   leftOverlay.setAttribute("class", "trace-preview__selection trace-preview__selection--left");
   leftOverlay.setAttribute("x", "0");
@@ -141,31 +163,27 @@ export function renderTracePreview(trace, onSelectionChange = null, initialSelec
   rightOverlay.style.pointerEvents = "none";
   svg.appendChild(rightOverlay);
 
-  // Left draggable marker
+  return { leftOverlay, rightOverlay };
+}
+
+/**
+ * Creates draggable marker lines (left and right).
+ * @param {SVGSVGElement} svg - The SVG element
+ * @returns {{leftMarker: SVGLineElement, rightMarker: SVGLineElement, updateStrokeWidth: Function}} The markers and update function
+ */
+function createPreviewMarkers(svg) {
   const leftMarker = document.createElementNS("http://www.w3.org/2000/svg", "line");
   leftMarker.setAttribute("class", "trace-preview__marker trace-preview__marker--left");
   leftMarker.setAttribute("x1", "0");
   leftMarker.setAttribute("y1", "0");
   leftMarker.setAttribute("x2", "0");
   leftMarker.setAttribute("y2", `${SVG_HEIGHT}`);
-  // Calculate stroke width in viewBox units to maintain fixed 8px width
-  // SVG viewBox is "0 0 100 ${SVG_HEIGHT}", so we need to convert 8px to viewBox units
-  const updateStrokeWidth = () => {
-    const rect = svg.getBoundingClientRect();
-    const viewBoxWidth = 100; // viewBox width in units
-    const pixelsPerUnit = rect.width / viewBoxWidth;
-    const strokeWidthUnits = 8 / pixelsPerUnit;
-    leftMarker.setAttribute("stroke-width", String(strokeWidthUnits));
-    rightMarker.setAttribute("stroke-width", String(strokeWidthUnits));
-  };
-
   leftMarker.setAttribute("stroke", "rgba(148, 163, 184, 0.6)");
   leftMarker.style.cursor = "col-resize";
   leftMarker.style.opacity = "0";
   leftMarker.style.transition = "opacity 0.2s ease";
   svg.appendChild(leftMarker);
 
-  // Right draggable marker
   const rightMarker = document.createElementNS("http://www.w3.org/2000/svg", "line");
   rightMarker.setAttribute("class", "trace-preview__marker trace-preview__marker--right");
   rightMarker.setAttribute("x1", "100");
@@ -178,61 +196,109 @@ export function renderTracePreview(trace, onSelectionChange = null, initialSelec
   rightMarker.style.transition = "opacity 0.2s ease";
   svg.appendChild(rightMarker);
 
-  // Initialize stroke width
+  const updateStrokeWidth = () => {
+    const rect = svg.getBoundingClientRect();
+    const viewBoxWidth = 100;
+    const pixelsPerUnit = rect.width / viewBoxWidth;
+    const strokeWidthUnits = 8 / pixelsPerUnit;
+    leftMarker.setAttribute("stroke-width", String(strokeWidthUnits));
+    rightMarker.setAttribute("stroke-width", String(strokeWidthUnits));
+  };
+
   updateStrokeWidth();
 
-  // Update stroke width on resize
   const resizeObserver = new ResizeObserver(() => {
     updateStrokeWidth();
   });
   resizeObserver.observe(svg);
 
-  // Selection state
+  return { leftMarker, rightMarker, updateStrokeWidth };
+}
+
+/**
+ * Converts SVG client coordinates to viewBox percentage.
+ * @param {SVGSVGElement} svg - The SVG element
+ * @param {number} clientX - The client X coordinate
+ * @returns {number} The percentage (0-100)
+ */
+function getXPercent(svg, clientX) {
+  const rect = svg.getBoundingClientRect();
+  const svgX = clientX - rect.left;
+  const percent = (svgX / rect.width) * 100;
+  return Math.max(0, Math.min(100, percent));
+}
+
+/**
+ * Updates selection overlays and marker positions.
+ * @param {SVGRectElement} leftOverlay - The left overlay element
+ * @param {SVGRectElement} rightOverlay - The right overlay element
+ * @param {SVGLineElement} leftMarker - The left marker element
+ * @param {SVGLineElement} rightMarker - The right marker element
+ * @param {number} selectionStart - The selection start percentage
+ * @param {number} selectionEnd - The selection end percentage
+ */
+function updateSelection(leftOverlay, rightOverlay, leftMarker, rightMarker, selectionStart, selectionEnd) {
+  const start = Math.min(selectionStart, selectionEnd);
+  const end = Math.max(selectionStart, selectionEnd);
+
+  leftOverlay.setAttribute("x", "0");
+  leftOverlay.setAttribute("width", `${start}`);
+
+  rightOverlay.setAttribute("x", `${end}`);
+  rightOverlay.setAttribute("width", `${100 - end}`);
+
+  leftMarker.setAttribute("x1", `${start}`);
+  leftMarker.setAttribute("x2", `${start}`);
+  rightMarker.setAttribute("x1", `${end}`);
+  rightMarker.setAttribute("x2", `${end}`);
+}
+
+/**
+ * Checks if selection is too small and resets if needed.
+ * @param {SVGSVGElement} svg - The SVG element
+ * @param {number} selectionStart - The selection start percentage
+ * @param {number} selectionEnd - The selection end percentage
+ * @returns {{start: number, end: number}} Normalized selection
+ */
+function normalizeSelection(svg, selectionStart, selectionEnd) {
+  let start = selectionStart;
+  let end = selectionEnd;
+
+  // Swap if end < start
+  if (end < start) {
+    [start, end] = [end, start];
+  }
+
+  // Check if selection is too small
+  const selectionWidthPercent = Math.abs(end - start);
+  const rect = svg.getBoundingClientRect();
+  const thresholdPercent = (5 / rect.width) * 100;
+
+  if (selectionWidthPercent < thresholdPercent) {
+    start = 0;
+    end = 100;
+  }
+
+  return { start, end };
+}
+
+/**
+ * Sets up mouse event handlers for the preview.
+ * @param {SVGSVGElement} svg - The SVG element
+ * @param {SVGRectElement} leftOverlay - The left overlay element
+ * @param {SVGRectElement} rightOverlay - The right overlay element
+ * @param {SVGLineElement} leftMarker - The left marker element
+ * @param {SVGLineElement} rightMarker - The right marker element
+ * @param {Function} onSelectionChange - Callback when selection changes
+ * @returns {{showMarkers: Function, hideMarkers: Function}} Marker visibility functions
+ */
+function setupPreviewMouseHandlers(svg, leftOverlay, rightOverlay, leftMarker, rightMarker, onSelectionChange) {
   let isSelecting = false;
   let selectionStart = 0;
   let selectionEnd = 0;
   let isDraggingMarker = false;
   let draggingMarker = null;
 
-  // Helper to convert SVG client coordinates to viewBox percentage
-  const getXPercent = (clientX) => {
-    const rect = svg.getBoundingClientRect();
-    const svgX = clientX - rect.left;
-    const percent = (svgX / rect.width) * 100;
-    return Math.max(0, Math.min(100, percent));
-  };
-
-  // Helper to update selection overlays (inverted: darken non-selected areas)
-  const updateSelection = () => {
-    const start = Math.min(selectionStart, selectionEnd);
-    const end = Math.max(selectionStart, selectionEnd);
-
-    // Left overlay: from 0 to start
-    leftOverlay.setAttribute("x", "0");
-    leftOverlay.setAttribute("width", `${start}`);
-
-    // Right overlay: from end to 100
-    rightOverlay.setAttribute("x", `${end}`);
-    rightOverlay.setAttribute("width", `${100 - end}`);
-
-    // Update marker positions
-    leftMarker.setAttribute("x1", `${start}`);
-    leftMarker.setAttribute("x2", `${start}`);
-    rightMarker.setAttribute("x1", `${end}`);
-    rightMarker.setAttribute("x2", `${end}`);
-  };
-
-  // Initialize selection from initialSelection or default to full range
-  if (initialSelection) {
-    selectionStart = initialSelection.start;
-    selectionEnd = initialSelection.end;
-  } else {
-    selectionStart = 0;
-    selectionEnd = 100;
-  }
-  updateSelection();
-
-  // Show/hide markers
   const showMarkers = () => {
     leftMarker.style.opacity = "1";
     rightMarker.style.opacity = "1";
@@ -245,9 +311,7 @@ export function renderTracePreview(trace, onSelectionChange = null, initialSelec
     }
   };
 
-  // Mouse down on SVG for selection
   const handleMouseDown = (e) => {
-    // Check if clicking on a marker
     const target = e.target;
     if (target === leftMarker || target === rightMarker) {
       isDraggingMarker = true;
@@ -255,64 +319,44 @@ export function renderTracePreview(trace, onSelectionChange = null, initialSelec
       return;
     }
 
-    // Start new selection
     isSelecting = true;
-    const xPercent = getXPercent(e.clientX);
+    const xPercent = getXPercent(svg, e.clientX);
     selectionStart = xPercent;
     selectionEnd = xPercent;
-    updateSelection();
+    updateSelection(leftOverlay, rightOverlay, leftMarker, rightMarker, selectionStart, selectionEnd);
     showMarkers();
     svg.style.cursor = "col-resize";
   };
 
-  // Mouse move during selection or marker dragging
   const handleMouseMove = (e) => {
     if (!isSelecting && !isDraggingMarker) {
-      // Show markers on hover
       return;
     }
 
-    const xPercent = getXPercent(e.clientX);
+    const xPercent = getXPercent(svg, e.clientX);
 
     if (isSelecting) {
       selectionEnd = xPercent;
-      updateSelection();
+      updateSelection(leftOverlay, rightOverlay, leftMarker, rightMarker, selectionStart, selectionEnd);
     } else if (isDraggingMarker) {
       if (draggingMarker === leftMarker) {
         selectionStart = xPercent;
       } else if (draggingMarker === rightMarker) {
         selectionEnd = xPercent;
       }
-      updateSelection();
+      updateSelection(leftOverlay, rightOverlay, leftMarker, rightMarker, selectionStart, selectionEnd);
     }
   };
 
-  // Mouse up - finalize selection
   const handleMouseUp = () => {
     if (isSelecting) {
-      // Swap if end < start
-      if (selectionEnd < selectionStart) {
-        [selectionStart, selectionEnd] = [selectionEnd, selectionStart];
-      }
+      const normalized = normalizeSelection(svg, selectionStart, selectionEnd);
+      selectionStart = normalized.start;
+      selectionEnd = normalized.end;
+      updateSelection(leftOverlay, rightOverlay, leftMarker, rightMarker, selectionStart, selectionEnd);
 
-      // Check if selection is too small - if so, reset to full range
-      const selectionWidthPercent = Math.abs(selectionEnd - selectionStart);
-      const rect = svg.getBoundingClientRect();
-      const thresholdPercent = (5 / rect.width) * 100;
-
-      if (selectionWidthPercent < thresholdPercent) {
-        // Reset selection to full range
-        selectionStart = 0;
-        selectionEnd = 100;
-      }
-
-      updateSelection();
-
-      // Notify parent of selection change
       if (onSelectionChange) {
-        const start = Math.min(selectionStart, selectionEnd);
-        const end = Math.max(selectionStart, selectionEnd);
-        onSelectionChange(start, end);
+        onSelectionChange(selectionStart, selectionEnd);
       }
 
       isSelecting = false;
@@ -320,31 +364,13 @@ export function renderTracePreview(trace, onSelectionChange = null, initialSelec
     }
 
     if (isDraggingMarker) {
-      // Swap if end < start
-      if (draggingMarker === leftMarker && selectionStart > selectionEnd) {
-        [selectionStart, selectionEnd] = [selectionEnd, selectionStart];
-      } else if (draggingMarker === rightMarker && selectionEnd < selectionStart) {
-        [selectionStart, selectionEnd] = [selectionEnd, selectionStart];
-      }
+      const normalized = normalizeSelection(svg, selectionStart, selectionEnd);
+      selectionStart = normalized.start;
+      selectionEnd = normalized.end;
+      updateSelection(leftOverlay, rightOverlay, leftMarker, rightMarker, selectionStart, selectionEnd);
 
-      // Check if selection is too small - if so, reset to full range
-      const selectionWidthPercent = Math.abs(selectionEnd - selectionStart);
-      const rect = svg.getBoundingClientRect();
-      const thresholdPercent = (5 / rect.width) * 100;
-
-      if (selectionWidthPercent < thresholdPercent) {
-        // Reset selection to full range
-        selectionStart = 0;
-        selectionEnd = 100;
-      }
-
-      updateSelection();
-
-      // Notify parent of selection change
       if (onSelectionChange) {
-        const start = Math.min(selectionStart, selectionEnd);
-        const end = Math.max(selectionStart, selectionEnd);
-        onSelectionChange(start, end);
+        onSelectionChange(selectionStart, selectionEnd);
       }
 
       isDraggingMarker = false;
@@ -354,14 +380,42 @@ export function renderTracePreview(trace, onSelectionChange = null, initialSelec
     hideMarkers();
   };
 
-  // Add event listeners for mouse interaction
   svg.addEventListener("mousedown", handleMouseDown);
   svg.addEventListener("mousemove", handleMouseMove);
   document.addEventListener("mouseup", handleMouseUp);
-
-  // Show markers on hover over SVG
   svg.addEventListener("mouseenter", showMarkers);
   svg.addEventListener("mouseleave", hideMarkers);
+
+  return { showMarkers, hideMarkers };
+}
+
+/**
+ * Renders a non-interactive SVG preview of the trace spans.
+ * @param {TraceModel} trace
+ * @param {Function} onSelectionChange - Callback when selection changes (start, end) as percentages
+ * @param {Object} initialSelection - Initial selection state {start: 0-100, end: 0-100}
+ * @returns {{ element: SVGSVGElement, update: Function }}
+ */
+export function renderTracePreview(trace, onSelectionChange = null, initialSelection = null) {
+  // Flatten all spans and calculate dimensions
+  const allSpans = flattenAllSpans(trace);
+  const rowCount = Math.max(allSpans.length, 1);
+  const spanHeight = calculateSpanHeight(rowCount);
+
+  // Create SVG structure
+  const svg = createPreviewSVG();
+  createPreviewBackground(svg);
+  renderPreviewSpans(svg, trace, allSpans, spanHeight);
+  const { leftOverlay, rightOverlay } = createSelectionOverlays(svg);
+  const { leftMarker, rightMarker } = createPreviewMarkers(svg);
+
+  // Initialize selection
+  let selectionStart = initialSelection?.start ?? 0;
+  let selectionEnd = initialSelection?.end ?? 100;
+  updateSelection(leftOverlay, rightOverlay, leftMarker, rightMarker, selectionStart, selectionEnd);
+
+  // Setup mouse handlers
+  setupPreviewMouseHandlers(svg, leftOverlay, rightOverlay, leftMarker, rightMarker, onSelectionChange);
 
   /**
    * Updates all computed colors in the preview without re-rendering.
@@ -369,14 +423,12 @@ export function renderTracePreview(trace, onSelectionChange = null, initialSelec
    */
   const update = () => {
     console.log("[Trace Preview Update] update() method called!");
-    // Force a reflow to ensure CSS variables are applied
     void svg.offsetWidth;
 
-    // Update background color - read from inline style first (immediate)
+    // Update background color
     const backgroundRect = svg.querySelector("rect.trace-preview-background");
     if (backgroundRect) {
       const root = document.documentElement;
-      // Read from inline style first (set by applyPalette), then fall back to computed style
       let surfaceColor = root.style.getPropertyValue("--ui-surface-2").trim();
       if (!surfaceColor) {
         const style = getComputedStyle(root);
@@ -386,20 +438,16 @@ export function renderTracePreview(trace, onSelectionChange = null, initialSelec
       console.log("[Trace Preview Update] Background color:", surfaceColor);
     }
 
-    // Update span rectangle fill colors - read fresh palette colors
-    // Find all span rectangles (excluding background and overlays)
+    // Update span rectangle fill colors
     const spanRects = svg.querySelectorAll("rect:not(.trace-preview-background):not(.trace-preview__selection)");
-
-    // Update each span rectangle with new colors
     spanRects.forEach((rect, index) => {
       if (index < allSpans.length) {
         const node = allSpans[index];
-        // Use centralized identity helper and color service
         const colorKey = getColorKeyFromNode(node);
         const color = computeServiceColor(colorKey, trace);
         const rgba = hexToRgba(color, 0.6);
         rect.setAttribute("fill", rgba);
-        if (index < 3) { // Log first 3 spans to avoid spam
+        if (index < 3) {
           console.log(`[Trace Preview Update] Span ${index}: colorKey="${colorKey}", groupName="${node.description?.groupName}", serviceName="${node.span.resource?.serviceName}", color="${color}", rgba="${rgba}"`);
         }
       }
