@@ -177,14 +177,15 @@ function clamp(value, min = 0, max = 1) {
 }
 
 /**
- * Collects unique service names from spans and creates an index mapping.
- * @param {TraceSpan[]} spans
+ * Collects unique service names from span nodes and creates an index mapping.
+ * Uses groupName from description if available, otherwise falls back to serviceName from resource.
+ * @param {Map<string, TraceSpanNode>} spanNodes - Map of span nodes with descriptions
  * @returns {Map<string, number>} Map from service name to index
  */
-function buildServiceNameMapping(spans) {
+function buildServiceNameMapping(spanNodes) {
   const serviceNames = new Set();
-  spans.forEach((span) => {
-    const serviceName = span.resource?.serviceName || "unknown-service";
+  spanNodes.forEach((node) => {
+    const serviceName = node.description?.groupName || node.span.resource?.serviceName || "unknown-service";
     serviceNames.add(serviceName);
   });
 
@@ -409,8 +410,8 @@ export function buildTraceModel(spans, logRows = null) {
     });
   });
 
-  const serviceNameMapping = buildServiceNameMapping(spans);
-
+  const serviceNameMapping = buildServiceNameMapping(spanNodes);
+  console.log(serviceNameMapping);
   const roots = [];
 
   spanNodes.forEach((node) => {
