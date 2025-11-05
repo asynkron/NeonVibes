@@ -318,9 +318,13 @@ function applyParticipantColors(host, trace) {
   // Find all participant header rectangles by their name attribute
   // Example: <rect class="actor actor-top" name="edge_gateway_Internal" ...>
   trace.components.forEach((component) => {
-    if (component.serviceName) {
+    // Get group name from component.groupId lookup
+    const group = component.groupId ? trace.groups.get(component.groupId) : null;
+    const colorName = (group?.name) || component.serviceName || "unknown-service";
+
+    if (colorName) {
       const escapedId = escapeMermaidId(component.id);
-      const color = computeServiceColor(component.serviceName);
+      const color = computeServiceColor(colorName);
       const serviceRgb = hexToRgb(color);
 
       if (serviceRgb && surface1Rgb) {
@@ -339,7 +343,7 @@ function applyParticipantColors(host, trace) {
             rect.style.strokeWidth = "2px";
           });
 
-          console.log(`[applyParticipantColors] Applied mixed color to ${rects.length} rect(s) with name="${escapedId}" (${component.serviceName}): rgba(${mixedRgb.r}, ${mixedRgb.g}, ${mixedRgb.b}, 1.0)`);
+          console.log(`[applyParticipantColors] Applied mixed color to ${rects.length} rect(s) with name="${escapedId}" (colorName: ${colorName}, group.name: ${group?.name}, serviceName: ${component.serviceName}): rgba(${mixedRgb.r}, ${mixedRgb.g}, ${mixedRgb.b}, 1.0)`);
         } else {
           console.warn(`[applyParticipantColors] No rects found with name="${escapedId}"`);
         }
