@@ -1,8 +1,11 @@
 /**
  * Gravibe Component Diagram Generator
  * Generates Mermaid component diagrams from trace metamodel data.
- * Based on TraceLens.Server/generators/PlantUml/Component1Generator.cs
+ * Based on TraceLens.Server/generators/PlantUml/Component1Generator.cs and Component2Generator.cs
  * Ported from PlantUML to Mermaid.js
+ * 
+ * Component2Generator: Simpler version that shows only component-to-component relationships
+ * without subcomponents (operations). This is the default generator.
  */
 
 import { createComponentKey, ComponentKind } from "./metaModel.js";
@@ -210,44 +213,19 @@ export function generateComponentDiagram(trace, config = {}) {
 }
 
 /**
- * Renders groups and components
+ * Renders groups and components (Component2Generator style - no subcomponents)
  * @param {string[]} lines - Output lines array
  * @param {Map<string, Component>} components - Components map
  * @param {Map<string, Group>} groups - Groups map
  * @param {Call[]} calls - Calls array
  */
 function renderGroups(lines, components, groups, calls) {
-  const renderedSubcomponents = new Set();
-
   // First, render components that are not in any group
   components.forEach((component) => {
     const group = groups.get(component.groupId);
     if (!group && component.name !== "nginx") {
       // Component not in a group
-      const componentId = escapeMermaidId(component.id);
       lines.push(`    ${getComponentDeclaration(component)}`);
-
-      // Find subcomponents (operations) for this component
-      const subcomponents = calls
-        .filter((call) => call.toId === component.id && call.operation && call.operation !== "")
-        .map((call) => getSubComponentId(component.id, call.operation))
-        .filter((id) => {
-          if (renderedSubcomponents.has(id)) return false;
-          renderedSubcomponents.add(id);
-          return true;
-        });
-
-      subcomponents.forEach((subId) => {
-        const call = calls.find(
-          (c) => getSubComponentId(component.id, c.operation) === subId
-        );
-        if (call) {
-          const escapedSubId = escapeMermaidId(subId);
-          const escapedOperation = escapeMermaid(call.operation);
-          lines.push(`    ${escapedSubId}["${escapedOperation}"]`);
-          lines.push(`    ${escapedSubId} -.-> ${componentId}`);
-        }
-      });
     }
   });
 
@@ -261,30 +239,7 @@ function renderGroups(lines, components, groups, calls) {
     // Render components in this group
     components.forEach((component) => {
       if (component.groupId === group.id) {
-        const componentId = escapeMermaidId(component.id);
         lines.push(`        ${getComponentDeclaration(component)}`);
-
-        // Find subcomponents (operations) for this component
-        const subcomponents = calls
-          .filter((call) => call.toId === component.id && call.operation && call.operation !== "")
-          .map((call) => getSubComponentId(component.id, call.operation))
-          .filter((id) => {
-            if (renderedSubcomponents.has(id)) return false;
-            renderedSubcomponents.add(id);
-            return true;
-          });
-
-        subcomponents.forEach((subId) => {
-          const call = calls.find(
-            (c) => getSubComponentId(component.id, c.operation) === subId
-          );
-          if (call) {
-            const escapedSubId = escapeMermaidId(subId);
-            const escapedOperation = escapeMermaid(call.operation);
-            lines.push(`        ${escapedSubId}["${escapedOperation}"]`);
-            lines.push(`        ${escapedSubId} -.-> ${componentId}`);
-          }
-        });
       }
     });
 
@@ -293,7 +248,7 @@ function renderGroups(lines, components, groups, calls) {
 }
 
 /**
- * Renders calls between components
+ * Renders calls between components (Component2Generator style - component-to-component only)
  * @param {string[]} lines - Output lines array
  * @param {Map<string, Component>} components - Components map
  * @param {Call[]} calls - Calls array
@@ -301,22 +256,41 @@ function renderGroups(lines, components, groups, calls) {
 function renderCalls(lines, components, calls) {
   const renderedCalls = new Set();
 
+  // Group calls by component-to-component pairs (ignoring operations)
+  const componentCalls = new Map();
+  
   calls.forEach((call) => {
-    const fromId = call.parentCall
-      ? getSubComponentId(call.parentCall.toId, call.parentCall.operation)
-      : call.fromId;
-    const toId = call.operation && call.operation !== ""
-      ? getSubComponentId(call.toId, call.operation)
-      : call.toId;
-
-    if (fromId === toId) return;
+    const fromId = call.fromId;
+    const toId = call.toId;
+    
+    if (fromId === toId || !fromId || !toId) return;
 
     const callKey = `${fromId}->${toId}`;
+    if (!componentCalls.has(callKey)) {
+      componentCalls.set(callKey, {
+        fromId,
+        toId,
+        kind: call.kind,
+        callCount: 0,
+      });
+    }
+    
+    const componentCall = componentCalls.get(callKey);
+    componentCall.callCount += call.callCount;
+    // Use async if any call is async
+    if (call.kind === "async") {
+      componentCall.kind = "async";
+    }
+  });
+
+  // Render component-to-component calls
+  componentCalls.forEach((call) => {
+    const callKey = `${call.fromId}->${call.toId}`;
     if (renderedCalls.has(callKey)) return;
     renderedCalls.add(callKey);
 
-    const escapedFromId = escapeMermaidId(fromId);
-    const escapedToId = escapeMermaidId(toId);
+    const escapedFromId = escapeMermaidId(call.fromId);
+    const escapedToId = escapeMermaidId(call.toId);
     const escapedLabel = escapeMermaid(`${call.callCount} calls`);
 
     // Use different arrow styles for sync vs async
@@ -329,7 +303,7 @@ function renderCalls(lines, components, calls) {
 }
 
 /**
- * Applies styling to components based on their kind
+ * Applies styling to components based on their kind (Component2Generator style - no subcomponents)
  * @param {string[]} lines - Output lines array
  * @param {Map<string, Component>} components - Components map
  * @param {Map<string, Group>} groups - Groups map
@@ -347,7 +321,6 @@ function applyStyling(lines, components, groups, calls) {
   lines.push("    classDef workflow fill:#1abc9c,stroke:#16a085,stroke-width:2px");
   lines.push("    classDef activity fill:#f39c12,stroke:#e67e22,stroke-width:2px");
   lines.push("    classDef database fill:#95a5a6,stroke:#7f8c8d,stroke-width:2px");
-  lines.push("    classDef subcomponent fill:#34495e,stroke:#2c3e50,stroke-width:1px,stroke-dasharray: 3 3");
 
   // Apply styles to components
   components.forEach((component) => {
@@ -367,23 +340,6 @@ function applyStyling(lines, components, groups, calls) {
     };
     const className = classMap[kind] || "service";
     lines.push(`    class ${componentId} ${className}`);
-  });
-
-  // Apply subcomponent style to all subcomponents (operations)
-  // This is done by finding all operation nodes
-  const subcomponentIds = [];
-  calls.forEach((call) => {
-    if (call.operation && call.operation !== "") {
-      const subId = getSubComponentId(call.toId, call.operation);
-      if (!subcomponentIds.includes(subId)) {
-        subcomponentIds.push(subId);
-      }
-    }
-  });
-
-  subcomponentIds.forEach((subId) => {
-    const escapedSubId = escapeMermaidId(subId);
-    lines.push(`    class ${escapedSubId} subcomponent`);
   });
 }
 
