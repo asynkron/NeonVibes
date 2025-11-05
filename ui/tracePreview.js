@@ -115,8 +115,8 @@ export function renderTracePreview(trace, onSelectionChange = null, initialSelec
     rect.setAttribute("y", `${y}`);
     rect.setAttribute("width", `${width}`);
     rect.setAttribute("height", `${height}`);
+    rect.setAttribute("rx", "0"); // No rounded corners - straight rectangles
     rect.setAttribute("fill", hexToRgba(color, 0.6));
-    rect.setAttribute("rx", "1.5"); // Rounded corners
     svg.appendChild(rect);
   });
 
