@@ -1309,61 +1309,47 @@ function setupComponent(article) {
   componentRegistry.add(runRender);
 }
 
-async function initGravibe() {
-  console.log("[gravibe.js initGravibe] Called");
-  
-  // Set the rerender callback so palette changes trigger component updates
-  setRerenderCallback(rerenderAllComponents);
-  console.log("[gravibe.js initGravibe] Registered rerenderAllComponents callback");
-  
-  const defaultPalette =
-    colorPalettes.find((palette) => palette.id === paletteState.activeId) ?? colorPalettes[0];
-
-  if (defaultPalette) {
-    console.log("[gravibe.js initGravibe] Applying default palette:", defaultPalette.id);
-    applyPalette(defaultPalette);
-  }
-
-  registerEffectControls();
-  registerRendererControl();
-  registerBackgroundControl();
-
+/**
+ * Initializes the palette selector dropdown.
+ */
+function initPaletteSelector() {
   const paletteSelect = document.querySelector("#palette-select");
-  if (paletteSelect) {
-    console.log("[gravibe.js initGravibe] Loading palettes:", colorPalettes.length, "palettes found");
-    paletteSelect.innerHTML = "";
-    colorPalettes.forEach((palette) => {
-      console.log("[gravibe.js initGravibe] Adding palette option:", palette.id, palette.label);
-      const option = document.createElement("option");
-      option.value = palette.id;
-      option.textContent = palette.label;
-      paletteSelect.append(option);
-    });
-    console.log("[gravibe.js initGravibe] Palette dropdown populated with", paletteSelect.options.length, "options");
-
-    if (paletteState.activeId) {
-      paletteSelect.value = paletteState.activeId;
-    }
-
-    paletteSelect.addEventListener("change", (event) => {
-      const selected = colorPalettes.find((palette) => palette.id === event.target.value);
-      if (selected) {
-        console.log("[gravibe.js] Palette select changed to:", selected.id);
-        applyPalette(selected);
-      }
-    });
+  if (!paletteSelect) {
+    return;
   }
 
-  const components = document.querySelectorAll(".component-card");
-  components.forEach((component) => setupComponent(component));
+  console.log("[gravibe.js initGravibe] Loading palettes:", colorPalettes.length, "palettes found");
+  paletteSelect.innerHTML = "";
+  colorPalettes.forEach((palette) => {
+    console.log("[gravibe.js initGravibe] Adding palette option:", palette.id, palette.label);
+    const option = document.createElement("option");
+    option.value = palette.id;
+    option.textContent = palette.label;
+    paletteSelect.append(option);
+  });
+  console.log("[gravibe.js initGravibe] Palette dropdown populated with", paletteSelect.options.length, "options");
 
-  const logConsoleHost = document.querySelector('[data-component="logConsole"]');
-  const traceHost = document.querySelector('[data-component="traceViewer"]');
-  
-  // Load sample1.json, fall back to sample data if not available
+  if (paletteState.activeId) {
+    paletteSelect.value = paletteState.activeId;
+  }
+
+  paletteSelect.addEventListener("change", (event) => {
+    const selected = colorPalettes.find((palette) => palette.id === event.target.value);
+    if (selected) {
+      console.log("[gravibe.js] Palette select changed to:", selected.id);
+      applyPalette(selected);
+    }
+  });
+}
+
+/**
+ * Loads trace data from sample1.json or falls back to sample data.
+ * @returns {Promise<{spans: Array, logs: Array}>} Trace spans and logs
+ */
+async function loadTraceData() {
   let spans = sampleTraceSpans;
   let logs = sampleLogRows;
-  
+
   try {
     const response = await fetch("./sample1.json");
     if (response.ok) {
@@ -1373,32 +1359,42 @@ async function initGravibe() {
       const parsed = parseOtelData(otelData);
       spans = parsed.spans;
       logs = parsed.logs;
-      
+
       // Add virtual log entries (span start, events, span end) for OTel spans
       const virtualLogs = spans.flatMap(span => createVirtualSpanLogs(span));
       logs = [...logs, ...virtualLogs];
-      
+
       console.log("[gravibe.js initGravibe] Loaded sample1.json:", spans.length, "spans,", logs.length, "logs");
     } else {
       console.log("[gravibe.js initGravibe] sample1.json not found (status:", response.status, "), using sample data");
-      // Fall back to sample data
       const allLogRows = await appendLogsFromSpans(sampleTraceSpans);
       logs = allLogRows;
     }
   } catch (error) {
     console.log("[gravibe.js initGravibe] Failed to load sample1.json, using sample data:", error);
-    // Fall back to sample data
     const allLogRows = await appendLogsFromSpans(sampleTraceSpans);
     logs = allLogRows;
   }
-  
+
+  return { spans, logs };
+}
+
+/**
+ * Initializes trace viewer components (log console, trace viewer, sequence diagram).
+ * @param {Array} spans - Trace spans
+ * @param {Array} logs - Log rows
+ */
+async function initTraceComponents(spans, logs) {
+  const logConsoleHost = document.querySelector('[data-component="logConsole"]');
+  const traceHost = document.querySelector('[data-component="traceViewer"]');
+  const sequenceDiagramHost = document.querySelector('[data-component="sequenceDiagram"]');
+
   // Ensure sampleLogRows module is loaded in trace.js before initializing trace viewer
-  // This ensures getSampleLogRows() can access the logs when rendering spans
   if (traceHost) {
     const { ensureSampleLogRowsLoaded } = await import("./ui/trace.js");
     await ensureSampleLogRowsLoaded();
   }
-  
+
   if (logConsoleHost) {
     const rerenderLogConsole = initLogConsole(logConsoleHost, logs);
     componentRegistry.add(rerenderLogConsole);
@@ -1411,13 +1407,42 @@ async function initGravibe() {
     componentRegistry.add(rerenderTrace);
   }
 
-  const sequenceDiagramHost = document.querySelector('[data-component="sequenceDiagram"]');
   if (sequenceDiagramHost) {
     const { initSequenceDiagram } = await import("./ui/sequenceDiagram.js");
     const rerenderSequence = initSequenceDiagram(sequenceDiagramHost, spans);
     console.log("[gravibe.js initGravibe] Sequence diagram initialized, component:", rerenderSequence);
     componentRegistry.add(rerenderSequence);
   }
+}
+
+async function initGravibe() {
+  console.log("[gravibe.js initGravibe] Called");
+
+  // Set the rerender callback so palette changes trigger component updates
+  setRerenderCallback(rerenderAllComponents);
+  console.log("[gravibe.js initGravibe] Registered rerenderAllComponents callback");
+
+  // Initialize default palette
+  const defaultPalette =
+    colorPalettes.find((palette) => palette.id === paletteState.activeId) ?? colorPalettes[0];
+  if (defaultPalette) {
+    console.log("[gravibe.js initGravibe] Applying default palette:", defaultPalette.id);
+    applyPalette(defaultPalette);
+  }
+
+  // Initialize controls
+  registerEffectControls();
+  registerRendererControl();
+  registerBackgroundControl();
+  initPaletteSelector();
+
+  // Initialize chart components
+  const components = document.querySelectorAll(".component-card");
+  components.forEach((component) => setupComponent(component));
+
+  // Load trace data and initialize trace components
+  const { spans, logs } = await loadTraceData();
+  await initTraceComponents(spans, logs);
 }
 
 if (document.readyState === "loading") {

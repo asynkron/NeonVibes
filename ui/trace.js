@@ -1257,104 +1257,132 @@ function calculateChildVerticalOffset(parentSummary, childSpanId) {
 }
 
 /**
- * Updates the heights and X positions of runline-y elements by measuring actual DOM positions.
+ * Gets the runline container and parent elements.
  * @param {HTMLElement} parentSummary - The parent summary element
+ * @returns {{runlineYContainer: HTMLElement, parentContainer: HTMLElement, parentSummaryRect: DOMRect, timelineAreaRect: DOMRect, barBottomOffset: number}|null} Container data or null
  */
-export function updateRunlineYHeights(parentSummary) {
+function getRunlineContainerData(parentSummary) {
   const runlineYContainer = parentSummary.querySelector('.trace-span__runline-y-container');
   if (!runlineYContainer) {
-    return;
+    return null;
   }
 
-  // Get parent summary and container positions
   const parentSummaryRect = parentSummary.getBoundingClientRect();
   const parentContainer = parentSummary.closest('.trace-span');
   if (!parentContainer) {
-    return;
+    return null;
   }
 
-  // Get timeline area position (where the runline-y container is positioned)
   const timelineAreaRect = runlineYContainer.getBoundingClientRect();
-
-  // Calculate offset from top of summary to bottom of timeline bar
   const parentBar = parentSummary.querySelector('.trace-span__bar');
   if (!parentBar) {
-    return;
+    return null;
   }
+
   const parentBarRect = parentBar.getBoundingClientRect();
   const barBottomOffset = parentBarRect.bottom - parentSummaryRect.top;
 
-  const lines = runlineYContainer.querySelectorAll('.trace-span__runline-y');
+  return {
+    runlineYContainer,
+    parentContainer,
+    parentSummaryRect,
+    timelineAreaRect,
+    barBottomOffset,
+  };
+}
+
+/**
+ * Gets the child bar element and its position.
+ * @param {HTMLElement} parentContainer - The parent container element
+ * @param {string} childSpanId - The child span ID
+ * @returns {{childBarRect: DOMRect, xPosition: number}|null} Child bar data or null
+ */
+function getChildBarData(parentContainer, childSpanId, position, timelineAreaRect) {
+  const childSpan = parentContainer.querySelector(`[data-span-id="${childSpanId}"]`);
+  if (!childSpan) {
+    return null;
+  }
+
+  const childSummary = childSpan.querySelector('.trace-span__summary');
+  if (!childSummary) {
+    return null;
+  }
+
+  const childBar = childSummary.querySelector('.trace-span__bar');
+  if (!childBar) {
+    return null;
+  }
+
+  const childBarRect = childBar.getBoundingClientRect();
+
+  // Check if child bar is visible (has valid dimensions)
+  if (childBarRect.width === 0 || childBarRect.height === 0) {
+    return null;
+  }
+
+  // Calculate X position based on start or end of child bar
+  const xPosition = position === "end"
+    ? childBarRect.right - timelineAreaRect.left
+    : childBarRect.left - timelineAreaRect.left;
+
+  return { childBarRect, xPosition };
+}
+
+/**
+ * Updates a single runline-y element's position and visibility.
+ * @param {HTMLElement} line - The line element
+ * @param {HTMLElement} parentSummary - The parent summary element
+ * @param {HTMLElement} parentContainer - The parent container element
+ * @param {DOMRect} timelineAreaRect - The timeline area rectangle
+ * @param {number} barBottomOffset - The offset from parent summary top to bar bottom
+ */
+function updateRunlineElement(line, parentSummary, parentContainer, timelineAreaRect, barBottomOffset) {
+  const childSpanId = line.dataset.childSpanId;
+  const position = line.dataset.position; // "start" or "end"
+
+  if (!childSpanId) {
+    line.style.display = 'none';
+    return;
+  }
+
+  const childBarData = getChildBarData(parentContainer, childSpanId, position, timelineAreaRect);
+  if (!childBarData) {
+    line.style.display = 'none';
+    return;
+  }
+
+  const { xPosition } = childBarData;
+  const totalDistance = calculateChildVerticalOffset(parentSummary, childSpanId);
 
   // One span-line height = 32px (2rem)
   const spanLineHeight = 32;
 
+  if (totalDistance !== null && totalDistance > barBottomOffset && !isNaN(xPosition) && xPosition >= 0) {
+    const lineHeight = totalDistance - barBottomOffset + spanLineHeight - 4;
+    line.style.top = `${barBottomOffset - 1}px`;
+    line.style.height = `${lineHeight}px`;
+    line.style.left = `${xPosition}px`;
+    line.style.display = 'block';
+  } else {
+    line.style.display = 'none';
+  }
+}
+
+/**
+ * Updates the heights and X positions of runline-y elements by measuring actual DOM positions.
+ * @param {HTMLElement} parentSummary - The parent summary element
+ */
+export function updateRunlineYHeights(parentSummary) {
+  const containerData = getRunlineContainerData(parentSummary);
+  if (!containerData) {
+    return;
+  }
+
+  const { runlineYContainer, parentContainer, timelineAreaRect, barBottomOffset } = containerData;
+  const lines = runlineYContainer.querySelectorAll('.trace-span__runline-y');
+
   lines.forEach((line) => {
-    const childSpanId = line.dataset.childSpanId;
-    const position = line.dataset.position; // "start" or "end"
-    if (!childSpanId) {
-      line.style.display = 'none';
-      return;
-    }
-
-    // Find child span element
-    const childSpan = parentContainer.querySelector(`[data-span-id="${childSpanId}"]`);
-    if (!childSpan) {
-      line.style.display = 'none';
-      return;
-    }
-
-    // Check if child is visible (not hidden)
-    // Note: getBoundingClientRect() will return (0,0) for hidden elements, so we check that later
-
-    // Find child span's bar element (the actual visual element in the timeline)
-    const childSummary = childSpan.querySelector('.trace-span__summary');
-    if (!childSummary) {
-      line.style.display = 'none';
-      return;
-    }
-
-    const childBar = childSummary.querySelector('.trace-span__bar');
-    if (!childBar) {
-      line.style.display = 'none';
-      return;
-    }
-
-    // Get child bar's position
-    const childBarRect = childBar.getBoundingClientRect();
-
-    // Check if child bar is visible (has valid dimensions)
-    if (childBarRect.width === 0 || childBarRect.height === 0) {
-      line.style.display = 'none';
-      return;
-    }
-
-    // Calculate X position based on start or end of child bar
-    let xPosition;
-    if (position === "end") {
-      // Right edge of the bar
-      xPosition = childBarRect.right - timelineAreaRect.left;
-    } else {
-      // Left edge of the bar (start)
-      xPosition = childBarRect.left - timelineAreaRect.left;
-    }
-
-    // Distance from parent summary top to child span top
-    const totalDistance = calculateChildVerticalOffset(parentSummary, childSpanId);
-
-    if (totalDistance !== null && totalDistance > barBottomOffset && !isNaN(xPosition) && xPosition >= 0) {
-      // Line height = total distance minus the offset to where line starts (bottom of bar) + one span-line height
-      const lineHeight = totalDistance - barBottomOffset + spanLineHeight - 4;
-      // Move up by 2px
-      line.style.top = `${barBottomOffset - 1}px`;
-      line.style.height = `${lineHeight}px`;
-      // Set X position based on child's actual screen position, adjusted 8px to the right
-      // Since the line uses transform: translateX(-50%), the left position is where the center should be
-      line.style.left = `${xPosition}px`;
-      line.style.display = 'block';
-    } else {
-      line.style.display = 'none';
-    }
+    updateRunlineElement(line, parentSummary, parentContainer, timelineAreaRect, barBottomOffset);
   });
 }
 
