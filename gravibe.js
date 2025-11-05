@@ -1388,6 +1388,7 @@ async function initTraceComponents(spans, logs) {
   const logConsoleHost = document.querySelector('[data-component="logConsole"]');
   const traceHost = document.querySelector('[data-component="traceViewer"]');
   const sequenceDiagramHost = document.querySelector('[data-component="sequenceDiagram"]');
+  const flameChartHost = document.querySelector('[data-component="flameChart"]');
 
   // Ensure sampleLogRows module is loaded in trace.js before initializing trace viewer
   if (traceHost) {
@@ -1412,6 +1413,13 @@ async function initTraceComponents(spans, logs) {
     const rerenderSequence = initSequenceDiagram(sequenceDiagramHost, spans);
     console.log("[gravibe.js initGravibe] Sequence diagram initialized, component:", rerenderSequence);
     componentRegistry.add(rerenderSequence);
+  }
+
+  if (flameChartHost) {
+    const { initFlameChart } = await import("./ui/flameChart.js");
+    const flameChartComponent = initFlameChart(flameChartHost, spans);
+    console.log("[gravibe.js initGravibe] Flame chart initialized, component:", flameChartComponent);
+    componentRegistry.add(flameChartComponent);
   }
 }
 

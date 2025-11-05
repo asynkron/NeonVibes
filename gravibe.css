@@ -416,7 +416,9 @@ body {
   gap: clamp(1.25rem, 3vw, 2rem);
 }
 
-.trace-section {
+.trace-section,
+.sequence-diagram-section,
+.flame-chart-section {
   width: 100%;
   background: var(--ui-surface-1);
   border-radius: 12px;
@@ -427,7 +429,9 @@ body {
   gap: clamp(1.25rem, 3vw, 2rem);
 }
 
-.trace-header {
+.trace-header,
+.sequence-diagram-header,
+.flame-chart-header {
   display: grid;
   gap: 0.5rem;
 }
@@ -455,7 +459,9 @@ body {
   stroke: rgba(148, 163, 184, 0.9);
 }
 
-.trace-header h2 {
+.trace-header h2,
+.sequence-diagram-header h2,
+.flame-chart-header h2 {
   margin: 0;
   font-size: var(--font-size-h3);
   font-weight: 600;
@@ -463,7 +469,9 @@ body {
 }
 
 .trace-header p,
-.trace-meta {
+.trace-meta,
+.sequence-diagram-header p,
+.flame-chart-header p {
   margin: 0;
   color: var(--text-muted);
   max-width: 60ch;
@@ -1536,4 +1544,168 @@ body {
   .log-row-meta dt {
     font-size: var(--font-size-xs);
   }
+}
+
+/* Flame Chart Styles */
+.flame-chart-container {
+  width: 100%;
+  min-height: 200px;
+  background: var(--ui-surface-2);
+  border-radius: 6px;
+  padding: 1rem;
+  overflow-x: auto;
+}
+
+.flame-chart {
+  background-color: var(--diagram-surface, var(--surface-1));
+  padding: 0.5rem;
+  width: 100%;
+  overflow-x: auto;
+}
+
+.flame-chart__root {
+  width: 100%;
+}
+
+.flame-chart__children {
+  width: 100%;
+  padding: 0;
+  display: flex;
+  justify-content: flex-start;
+}
+
+.flame-chart__span-bar-total {
+  overflow: clip;
+  position: relative;
+  border: 0.5px solid transparent;
+  height: 19px;
+}
+
+.flame-chart__span-bg {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  left: 0;
+  top: 0;
+  background-color: red;
+  opacity: 0.65;
+}
+
+.flame-chart__span-bar {
+  width: 100%;
+  position: absolute;
+  overflow: clip;
+  color: white;
+  height: 100%;
+  padding-top: 1px;
+  background-color: white;
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.flame-chart__span-bar-small {
+  background-color: #4a437f;
+  height: 18px;
+  overflow: visible;
+  width: 100%;
+}
+
+.flame-chart__span-bar-selected {
+  background-color: #1474bf !important;
+}
+
+.flame-chart__span-bar-total:hover {
+  border: 0.5px solid white;
+}
+
+.flame-chart__span-bar.start {
+  background-color: var(--shape-start);
+}
+
+.flame-chart__span-bar.endpoint {
+  background-color: var(--shape-endpoint);
+}
+
+.flame-chart__span-bar.service {
+  background-color: var(--shape-service);
+}
+
+.flame-chart__span-bar.actor {
+  background-color: var(--shape-actor);
+}
+
+.flame-chart__span-bar.queue {
+  background-color: var(--shape-queue);
+}
+
+.flame-chart__span-bar.queueconsumer {
+  background-color: var(--shape-queue-consumer);
+}
+
+.flame-chart__span-bar.workflow {
+  background-color: var(--shape-workflow);
+}
+
+.flame-chart__span-bar.activity {
+  background-color: var(--shape-activity);
+}
+
+.flame-chart__span-bar.database {
+  background-color: var(--shape-database);
+}
+
+.flame-chart__span-bg.start {
+  background-color: var(--shape-start);
+}
+
+.flame-chart__span-bg.endpoint {
+  background-color: var(--shape-endpoint);
+}
+
+.flame-chart__span-bg.service {
+  background-color: var(--shape-service);
+}
+
+.flame-chart__span-bg.actor {
+  background-color: var(--shape-actor);
+}
+
+.flame-chart__span-bg.queue {
+  background-color: var(--shape-queue);
+}
+
+.flame-chart__span-bg.queueconsumer {
+  background-color: var(--shape-queue-consumer);
+}
+
+.flame-chart__span-bg.workflow {
+  background-color: var(--shape-workflow);
+}
+
+.flame-chart__span-bg.activity {
+  background-color: var(--shape-activity);
+}
+
+.flame-chart__span-bg.database {
+  background-color: var(--shape-database);
+}
+
+.flame-chart__span-error {
+  background-color: var(--log-level-error) !important;
+}
+
+.flame-chart__title {
+  text-align: left;
+  text-overflow: ellipsis;
+  overflow: clip;
+  white-space: nowrap;
+  font-size: 10px;
+  top: 2px;
+  padding-left: 8px;
+  position: absolute;
+  left: 0;
+  right: 10px;
+  color: white;
+  z-index: 1;
+  pointer-events: none;
 }
