@@ -418,7 +418,8 @@ body {
 
 .trace-section,
 .sequence-diagram-section,
-.flame-chart-section {
+.flame-chart-section,
+.component-diagram-section {
   width: 100%;
   background: var(--ui-surface-1);
   border-radius: 12px;
@@ -431,7 +432,8 @@ body {
 
 .trace-header,
 .sequence-diagram-header,
-.flame-chart-header {
+.flame-chart-header,
+.component-diagram-header {
   display: grid;
   gap: 0.5rem;
 }
@@ -461,7 +463,8 @@ body {
 
 .trace-header h2,
 .sequence-diagram-header h2,
-.flame-chart-header h2 {
+.flame-chart-header h2,
+.component-diagram-header h2 {
   margin: 0;
   font-size: var(--font-size-h3);
   font-weight: 600;
@@ -471,7 +474,8 @@ body {
 .trace-header p,
 .trace-meta,
 .sequence-diagram-header p,
-.flame-chart-header p {
+.flame-chart-header p,
+.component-diagram-header p {
   margin: 0;
   color: var(--text-muted);
   max-width: 60ch;
@@ -1554,6 +1558,22 @@ body {
   border-radius: 6px;
   padding: 1rem;
   overflow-x: auto;
+}
+
+/* Component Diagram Styles */
+.component-diagram-container {
+  width: 100%;
+  min-height: 400px;
+  background: var(--ui-surface-2);
+  border-radius: 6px;
+  padding: 1rem;
+  overflow: auto;
+}
+
+.component-diagram-container .mermaid {
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .flame-chart {
