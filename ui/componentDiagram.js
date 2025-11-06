@@ -11,6 +11,10 @@
 import { createComponentKey, ComponentKind } from "./metaModel.js";
 import { escapeMermaid, escapeMermaidId } from "../core/strings.js";
 import { buildTraceModel } from "./trace.js";
+import { getColorKeyFromGroupOrComponent } from "../core/identity.js";
+import { computeServiceColor } from "../core/colorService.js";
+import { hexToRgb } from "../core/colors.js";
+import { mixWithSurface } from "../core/colorService.js";
 
 /**
  * @typedef {import("./trace.js").TraceModel} TraceModel
@@ -217,7 +221,7 @@ function generateComponent1Diagram(trace, config) {
   lines.push("flowchart LR");
   renderGroupsWithSubcomponents(lines, components, groups, calls);
   renderCallsWithSubcomponents(lines, components, calls);
-  applyStylingWithSubcomponents(lines, components, groups, calls);
+  applyStylingWithSubcomponents(lines, components, groups, calls, trace);
 
   return lines.join("\n");
 }
@@ -236,7 +240,7 @@ function generateComponent2Diagram(trace, config) {
   lines.push("flowchart LR");
   renderGroupsWithoutSubcomponents(lines, components, groups);
   renderCallsComponentToComponent(lines, components, calls);
-  applyStylingWithoutSubcomponents(lines, components);
+  applyStylingWithoutSubcomponents(lines, components, groups, trace);
 
   return lines.join("\n");
 }
@@ -495,7 +499,7 @@ function renderCallsComponentToComponent(lines, components, calls) {
  * @param {Map<string, Group>} groups - Groups map
  * @param {Call[]} calls - Calls array
  */
-function applyStylingWithSubcomponents(lines, components, groups, calls) {
+function applyStylingWithSubcomponents(lines, components, groups, calls, trace) {
   // Add class definitions for different component kinds
   lines.push("");
   lines.push("    classDef start fill:#61afef,stroke:#4a90e2,stroke-width:2px");
@@ -508,6 +512,39 @@ function applyStylingWithSubcomponents(lines, components, groups, calls) {
   lines.push("    classDef activity fill:#f39c12,stroke:#e67e22,stroke-width:2px");
   lines.push("    classDef database fill:#95a5a6,stroke:#7f8c8d,stroke-width:2px");
   lines.push("    classDef subcomponent fill:#34495e,stroke:#2c3e50,stroke-width:1px,stroke-dasharray: 3 3");
+
+  // Create classDef for each group with its color (same as sequence diagram boxes)
+  if (groups && groups.size > 0) {
+    groups.forEach((group) => {
+      // Find a representative component in this group
+      let representativeComponent = null;
+      components.forEach((component) => {
+        if (component.groupId === group.id && !representativeComponent) {
+          representativeComponent = component;
+        }
+      });
+
+      // Use the same color lookup logic as sequence diagram boxes
+      const colorKey = getColorKeyFromGroupOrComponent(group, representativeComponent);
+      const colorHex = computeServiceColor(colorKey, trace);
+      const rgb = hexToRgb(colorHex);
+
+      if (rgb) {
+        const groupId = escapeMermaidId(group.id);
+        const groupClassDefName = `group_${groupId}`;
+        // Use same opacity as sequence diagram boxes (0.05)
+        // Mermaid doesn't support rgba in classDef fill, so blend with background to get hex
+        // Blend color with surface-1 to approximate rgba(r, g, b, 0.05)
+        // Use 0.85 ratio (15% color, 85% background) to match visual appearance of rgba(0.05)
+        const blendedRgb = mixWithSurface(colorHex, '--surface-1', 0.85);
+        if (blendedRgb) {
+          // Convert RGB to hex
+          const hexColor = `#${((1 << 24) + (blendedRgb.r << 16) + (blendedRgb.g << 8) + blendedRgb.b).toString(16).slice(1)}`;
+          lines.push(`    classDef ${groupClassDefName} fill:${hexColor}`);
+        }
+      }
+    });
+  }
 
   // Apply styles to components
   components.forEach((component) => {
@@ -528,6 +565,16 @@ function applyStylingWithSubcomponents(lines, components, groups, calls) {
     const className = classMap[kind] || "service";
     lines.push(`    class ${componentId} ${className}`);
   });
+
+  // Apply group styles to group subgraphs
+  // Mermaid syntax: class <subgraph-id> <classdef-name>
+  if (groups && groups.size > 0) {
+    groups.forEach((group) => {
+      const groupId = escapeMermaidId(group.id);
+      const groupClassDefName = `group_${groupId}`;
+      lines.push(`    class ${groupId} ${groupClassDefName}`);
+    });
+  }
 
   // Apply subcomponent style to all subcomponents (operations)
   const subcomponentIds = [];
@@ -550,8 +597,10 @@ function applyStylingWithSubcomponents(lines, components, groups, calls) {
  * Applies styling to components without subcomponents (Component2Generator style)
  * @param {string[]} lines - Output lines array
  * @param {Map<string, Component>} components - Components map
+ * @param {Map<string, Group>} groups - Groups map
+ * @param {TraceModel} trace - Trace model for color lookup
  */
-function applyStylingWithoutSubcomponents(lines, components) {
+function applyStylingWithoutSubcomponents(lines, components, groups, trace) {
   // Add class definitions for different component kinds
   lines.push("");
   lines.push("    classDef start fill:#61afef,stroke:#4a90e2,stroke-width:2px");
@@ -563,6 +612,39 @@ function applyStylingWithoutSubcomponents(lines, components) {
   lines.push("    classDef workflow fill:#1abc9c,stroke:#16a085,stroke-width:2px");
   lines.push("    classDef activity fill:#f39c12,stroke:#e67e22,stroke-width:2px");
   lines.push("    classDef database fill:#95a5a6,stroke:#7f8c8d,stroke-width:2px");
+
+  // Create classDef for each group with its color (same as sequence diagram boxes)
+  if (groups && groups.size > 0) {
+    groups.forEach((group) => {
+      // Find a representative component in this group
+      let representativeComponent = null;
+      components.forEach((component) => {
+        if (component.groupId === group.id && !representativeComponent) {
+          representativeComponent = component;
+        }
+      });
+
+      // Use the same color lookup logic as sequence diagram boxes
+      const colorKey = getColorKeyFromGroupOrComponent(group, representativeComponent);
+      const colorHex = computeServiceColor(colorKey, trace);
+      const rgb = hexToRgb(colorHex);
+
+      if (rgb) {
+        const groupId = escapeMermaidId(group.id);
+        const groupClassDefName = `group_${groupId}`;
+        // Use same opacity as sequence diagram boxes (0.05)
+        // Mermaid doesn't support rgba in classDef fill, so blend with background to get hex
+        // Blend color with surface-1 to approximate rgba(r, g, b, 0.05)
+        // Use 0.85 ratio (15% color, 85% background) to match visual appearance of rgba(0.05)
+        const blendedRgb = mixWithSurface(colorHex, '--surface-1', 0.85);
+        if (blendedRgb) {
+          // Convert RGB to hex
+          const hexColor = `#${((1 << 24) + (blendedRgb.r << 16) + (blendedRgb.g << 8) + blendedRgb.b).toString(16).slice(1)}`;
+          lines.push(`    classDef ${groupClassDefName} fill:${hexColor}`);
+        }
+      }
+    });
+  }
 
   // Apply styles to components
   components.forEach((component) => {
@@ -583,6 +665,16 @@ function applyStylingWithoutSubcomponents(lines, components) {
     const className = classMap[kind] || "service";
     lines.push(`    class ${componentId} ${className}`);
   });
+
+  // Apply group styles to group subgraphs
+  // Mermaid syntax: class <subgraph-id> <classdef-name>
+  if (groups && groups.size > 0) {
+    groups.forEach((group) => {
+      const groupId = escapeMermaidId(group.id);
+      const groupClassDefName = `group_${groupId}`;
+      lines.push(`    class ${groupId} ${groupClassDefName}`);
+    });
+  }
 }
 
 /**
@@ -758,6 +850,102 @@ function applySpanStyling(lines, trace) {
 }
 
 /**
+ * Applies colors to group subgraph backgrounds in the rendered SVG
+ * Mermaid doesn't support styling subgraphs via classDef, so we need to post-process the SVG
+ * @param {HTMLElement} host - Container element with the rendered Mermaid diagram
+ * @param {TraceModel} trace - Trace model with groups and components
+ */
+function applyGroupSubgraphColors(host, trace) {
+  if (!trace || !trace.groups || !trace.serviceNameMapping) {
+    return;
+  }
+
+  const mermaidSvg = host.querySelector("svg");
+  if (!mermaidSvg) {
+    return;
+  }
+
+  // Mermaid renders subgraphs as <g> elements with class "cluster"
+  trace.groups.forEach((group) => {
+    const escapedGroupId = escapeMermaidId(group.id);
+
+    // Find a representative component in this group
+    let representativeComponent = null;
+    trace.components.forEach((component) => {
+      if (component.groupId === group.id && !representativeComponent) {
+        representativeComponent = component;
+      }
+    });
+
+    // Use the same color lookup logic as sequence diagram boxes
+    const colorKey = getColorKeyFromGroupOrComponent(group, representativeComponent);
+    const colorHex = computeServiceColor(colorKey, trace);
+    const rgb = hexToRgb(colorHex);
+
+    if (rgb) {
+      // Use same opacity as sequence diagram boxes (0.05)
+      const fillColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.05)`;
+
+      // Find cluster groups - Mermaid uses class "cluster" for subgraphs
+      // Try multiple selectors to find the right cluster
+      let clusterGroup = null;
+
+      // Method 1: Find by ID containing the group ID
+      const idMatch = mermaidSvg.querySelector(`g[id*="${escapedGroupId}"]`);
+      if (idMatch && idMatch.classList.contains('cluster')) {
+        clusterGroup = idMatch;
+      }
+
+      // Method 2: Find all clusters and match by text content (group name)
+      if (!clusterGroup) {
+        const allClusters = mermaidSvg.querySelectorAll('g.cluster');
+        allClusters.forEach((cluster) => {
+          const textElements = cluster.querySelectorAll('text');
+          for (const textEl of textElements) {
+            if (textEl.textContent.trim() === group.name) {
+              clusterGroup = cluster;
+              break;
+            }
+          }
+        });
+      }
+
+      // Method 3: Find by position/order if we have a reliable way
+      if (!clusterGroup && trace.groups.size > 0) {
+        const allClusters = Array.from(mermaidSvg.querySelectorAll('g.cluster'));
+        const groupIndex = Array.from(trace.groups.values()).indexOf(group);
+        if (groupIndex >= 0 && groupIndex < allClusters.length) {
+          clusterGroup = allClusters[groupIndex];
+        }
+      }
+
+      if (clusterGroup) {
+        // Find the background rectangle (largest rect in the cluster)
+        const rects = clusterGroup.querySelectorAll('rect');
+        let backgroundRect = null;
+        let maxArea = 0;
+
+        rects.forEach((rect) => {
+          const width = parseFloat(rect.getAttribute('width') || '0');
+          const height = parseFloat(rect.getAttribute('height') || '0');
+          const area = width * height;
+          if (area > maxArea && area > 100) {
+            maxArea = area;
+            backgroundRect = rect;
+          }
+        });
+
+        if (backgroundRect) {
+          backgroundRect.setAttribute('fill', fillColor);
+          backgroundRect.style.fill = fillColor;
+          backgroundRect.removeAttribute('fill-opacity');
+        }
+      }
+    }
+  });
+}
+
+/**
  * Initializes the component diagram viewer
  * @param {HTMLElement} host - Container element for the diagram
  * @param {import("./trace.js").TraceSpan[]} spans - Trace spans
@@ -836,7 +1024,28 @@ export function initComponentDiagram(host, spans, config = {}) {
             curve: "basis", // Always use smooth curved lines
           },
         });
-        mermaid.run();
+
+        // Render the Mermaid diagram
+        mermaid.contentLoaded();
+
+        // Apply colors to group subgraphs after rendering
+        // Only apply group colors for generators 1 and 2 (generator 3 doesn't render groups)
+        const generator = currentConfig.generator || 3;
+        if ((generator === 1 || generator === 2) && trace) {
+          // Wait for Mermaid to fully render the SVG before applying colors
+          // Try multiple times with increasing delays to ensure SVG is ready
+          const tryApplyColors = (attempt = 0) => {
+            const mermaidSvg = host.querySelector("svg");
+            if (mermaidSvg) {
+              applyGroupSubgraphColors(host, trace);
+            } else if (attempt < 10) {
+              setTimeout(() => tryApplyColors(attempt + 1), 100 * (attempt + 1));
+            }
+          };
+
+          // Initial attempt after 500ms
+          setTimeout(() => tryApplyColors(0), 500);
+        }
       } else {
         console.warn("[initComponentDiagram] Mermaid.js not loaded");
       }
