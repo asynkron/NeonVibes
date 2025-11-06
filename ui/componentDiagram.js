@@ -1128,33 +1128,78 @@ export function initComponentDiagram(host, spans, config = {}) {
         const rootStyles = getComputedStyle(document.documentElement);
         const borderColor = rootStyles.getPropertyValue('--ui-border').trim() || '#3a3a3a';
         const textColor = rootStyles.getPropertyValue('--ui-text').trim() || '#d7dce3';
+        const surface1 = rootStyles.getPropertyValue('--ui-surface-1').trim() || '#242933';
+        const surface2 = rootStyles.getPropertyValue('--ui-surface-2').trim() || '#1e2129';
+        const surface3 = rootStyles.getPropertyValue('--ui-surface-3').trim() || '#12161e';
+        const fontFamily = rootStyles.getPropertyValue('--font-base').trim() || '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+        const fontSize = rootStyles.getPropertyValue('--font-size-base').trim() || '1rem';
 
         mermaid.initialize({
           startOnLoad: true,
           theme: currentConfig.theme || "dark",
           themeVariables: {
+            // Font styling
+            fontSize: fontSize,
+            fontFamily: fontFamily,
+
+            // Main background colors
+            mainBkg: surface1,
+            secondaryBkg: surface2,
+            tertiaryBkg: surface3,
+
             // Cluster/subgraph styling
             clusterBkg: 'transparent', // We'll set this via classDef per group
             clusterBorder: borderColor,
             clusterText: textColor,
             clusterTextColor: textColor,
+
             // Flowchart node styling
             primaryColor: '#c678dd',
             primaryTextColor: textColor,
             primaryBorderColor: borderColor,
-            lineColor: textColor, // Arrow/edge color matches text color
             secondaryColor: '#98c379',
+            secondaryTextColor: textColor,
+            secondaryBorderColor: borderColor,
             tertiaryColor: '#61afef',
+            tertiaryTextColor: textColor,
+            tertiaryBorderColor: borderColor,
+
+            // Edge/link styling
+            lineColor: textColor, // Arrow/edge color matches text color
+            defaultLinkColor: textColor,
+            edgeLabelBackground: surface2,
+
+            // Title styling
+            titleColor: textColor,
+
+            // Color scale variables (cScale0-cScale11)
+            cScale0: '#c678dd',
+            cScale1: '#98c379',
+            cScale2: '#61afef',
+            cScale3: '#e5c07b',
+            cScale4: '#d19a66',
+            cScale5: '#e86671',
+            cScale6: '#00c0ff',
+            cScale7: '#9b59b6',
+            cScale8: '#2ecc71',
+            cScale9: '#f39c12',
+            cScale10: '#e74c3c',
+            cScale11: '#3498db',
           },
           flowchart: {
             useMaxWidth: true,
             htmlLabels: true,
             curve: "basis", // Always use smooth curved lines
-            padding: 30, // Add padding around flowchart elements
-            nodeSpacing: 20,
-            rankSpacing: 20,
+            padding: 20, // Add padding around flowchart elements
+            nodeSpacing: 0,
+            rankSpacing: 0,
+            diagramMarginX: 50, // Horizontal margin around the diagram
+            diagramMarginY: 10, // Vertical margin around the diagram
+            wrap: false, // Enable text wrapping for node labels
+            wrapPadding: 10, // Padding for wrapped text
+            wrapWidth: 150, // Width before wrapping
             subGraphTitleMargin: {
-              top: 10,
+              top: 15,
               bottom: 10,
             },
           },
