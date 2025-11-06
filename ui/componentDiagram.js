@@ -297,6 +297,11 @@ function generateComponent1Diagram(trace, config) {
   renderCallsWithSubcomponents(lines, components, calls);
   applyStylingWithSubcomponents(lines, components, groups, calls, trace);
 
+  // Add linkStyle to set arrow stroke width to 2px and color to text color
+  const rootStyles = getComputedStyle(document.documentElement);
+  const textColor = rootStyles.getPropertyValue('--ui-text').trim() || '#d7dce3';
+  lines.push(`    linkStyle default stroke-width:2px,stroke:${textColor}`);
+
   return lines.join("\n");
 }
 
@@ -316,6 +321,11 @@ function generateComponent2Diagram(trace, config) {
   renderCallsComponentToComponent(lines, components, calls);
   applyStylingWithoutSubcomponents(lines, components, groups, trace);
 
+  // Add linkStyle to set arrow stroke width to 2px and color to text color
+  const rootStyles = getComputedStyle(document.documentElement);
+  const textColor = rootStyles.getPropertyValue('--ui-text').trim() || '#d7dce3';
+  lines.push(`    linkStyle default stroke-width:2px,stroke:${textColor}`);
+
   return lines.join("\n");
 }
 
@@ -333,6 +343,11 @@ function generateComponent3Diagram(trace, config) {
   renderSpans(lines, trace);
   renderSpanCalls(lines, trace);
   applySpanStyling(lines, trace);
+
+  // Add linkStyle to set arrow stroke width to 2px and color to text color
+  const rootStyles = getComputedStyle(document.documentElement);
+  const textColor = rootStyles.getPropertyValue('--ui-text').trim() || '#d7dce3';
+  lines.push(`    linkStyle default stroke-width:2px,stroke:${textColor}`);
 
   return lines.join("\n");
 }
@@ -1127,7 +1142,7 @@ export function initComponentDiagram(host, spans, config = {}) {
             primaryColor: '#c678dd',
             primaryTextColor: textColor,
             primaryBorderColor: borderColor,
-            lineColor: borderColor,
+            lineColor: textColor, // Arrow/edge color matches text color
             secondaryColor: '#98c379',
             tertiaryColor: '#61afef',
           },
@@ -1135,9 +1150,9 @@ export function initComponentDiagram(host, spans, config = {}) {
             useMaxWidth: true,
             htmlLabels: true,
             curve: "basis", // Always use smooth curved lines
-            padding: 10, // Add padding around flowchart elements
-            nodeSpacing: 50,
-            rankSpacing: 50,
+            padding: 30, // Add padding around flowchart elements
+            nodeSpacing: 20,
+            rankSpacing: 20,
             subGraphTitleMargin: {
               top: 10,
               bottom: 10,
