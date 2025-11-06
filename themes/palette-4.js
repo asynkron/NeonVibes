@@ -11,13 +11,13 @@ const TERTIARY = "#10b981";
 const QUATERNARY = "#06b6d4";
 const QUINARY = "#f59e0b";
 const SENARY = "#ef4444";
-const DEBUG_GRAY = "#64748b";
-const INFO_BLUE = "#2563eb";
-const WARNING_AMBER = "#d97706";
-const ERROR_RED = "#dc2626";
-const CRITICAL_RED = "#b91c1c";
-const EVENT_GREEN = "#059669";
-const SPAN_BLUE = "#0284c7";
+const LOG_DEBUG = "#64748b";
+const LOG_INFO = "#2563eb";
+const LOG_WARNING = "#d97706";
+const LOG_ERROR = "#dc2626";
+const LOG_CRITICAL = "#b91c1c";
+const LOG_EVENT = "#059669";
+const LOG_SPAN = "#0284c7";
 const BACKGROUND1 = "#f8fafc";
 const BACKGROUND2 = "#f1f5f9";
 const BACKGROUND3 = "#e2e8f0";
@@ -47,13 +47,13 @@ export const palette4 = {
         senary: SENARY,
     },
     logging: {
-        debug: DEBUG_GRAY,
-        information: INFO_BLUE,
-        warning: WARNING_AMBER,
-        error: ERROR_RED,
-        critical: CRITICAL_RED,
-        event: EVENT_GREEN,
-        span: SPAN_BLUE,
+        debug: LOG_DEBUG,
+        information: LOG_INFO,
+        warning: LOG_WARNING,
+        error: LOG_ERROR,
+        critical: LOG_CRITICAL,
+        event: LOG_EVENT,
+        span: LOG_SPAN,
     },
     ui: {
         "surface-1": BACKGROUND1,
@@ -64,10 +64,10 @@ export const palette4 = {
         highlight: HIGHLIGHT,
         border: BORDER,
         success: TERTIARY,
-        warning: WARNING_AMBER,
-        info: INFO_BLUE,
-        danger: ERROR_RED,
-        muted: DEBUG_GRAY,
+        warning: LOG_WARNING,
+        info: LOG_INFO,
+        danger: LOG_ERROR,
+        muted: LOG_DEBUG,
     },
     components: {
         "start": COMPONENT_TEAL,

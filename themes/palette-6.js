@@ -10,9 +10,9 @@ const TERTIARY = "#98c379";
 const QUATERNARY = "#56b6c2";
 const QUINARY = "#61afef";
 const SENARY = "#c678dd";
-const DEBUG_GRAY = "#5c6370";
-const WARNING_YELLOW = "#e5c07b";
-const CRITICAL_RED = "#be5046";
+const LOG_DEBUG = "#5c6370";
+const LOG_WARNING = "#e5c07b";
+const LOG_CRITICAL = "#be5046";
 const BACKGROUND1 = "#282c34";
 const BACKGROUND2 = "#21252b";
 const BACKGROUND3 = "#1e2127";
@@ -42,11 +42,11 @@ export const palette6 = {
         senary: SENARY,
     },
     logging: {
-        debug: DEBUG_GRAY,
+        debug: LOG_DEBUG,
         information: QUINARY,
-        warning: WARNING_YELLOW,
+        warning: LOG_WARNING,
         error: PRIMARY,
-        critical: CRITICAL_RED,
+        critical: LOG_CRITICAL,
         event: TERTIARY,
         span: SENARY,
     },
@@ -59,10 +59,10 @@ export const palette6 = {
         highlight: HIGHLIGHT,
         border: BORDER,
         success: TERTIARY,
-        warning: WARNING_YELLOW,
+        warning: LOG_WARNING,
         info: QUINARY,
         danger: PRIMARY,
-        muted: DEBUG_GRAY,
+        muted: LOG_DEBUG,
     },
     components: {
         "start": COMPONENT_TEAL,

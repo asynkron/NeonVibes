@@ -10,14 +10,14 @@ const GREEN = "#50fa7b";
 const CYAN = "#8be9fd";
 const PURPLE = "#bd93f9";
 const PINK = "#ff79c6";
-const COMMENT_GRAY = "#6272a4";
+const LOG_DEBUG = "#6272a4";
+const LOG_CRITICAL = "#ff6e6e";
 const BACKGROUND1 = "#282a36";
 const BACKGROUND2 = "#44475a";
 const BACKGROUND3 = "#21222c";
 const FOREGROUND = "#f8f8f2";
 const WHITE = "#ffffff";
 const HIGHLIGHT = "rgba(255, 255, 255, 0.05)";
-const RED_LIGHT = "#ff6e6e";
 
 // Component colors
 const COMPONENT_TEAL = "#1abc9c";
@@ -41,11 +41,11 @@ export const palette8 = {
     },
 
     logging: {
-        debug: COMMENT_GRAY,
+        debug: LOG_DEBUG,
         information: CYAN,
         warning: YELLOW,
         error: RED,
-        critical: RED_LIGHT,
+        critical: LOG_CRITICAL,
         event: GREEN,
         span: PURPLE,
     },
@@ -61,7 +61,7 @@ export const palette8 = {
         warning: YELLOW,
         info: CYAN,
         danger: RED,
-        muted: COMMENT_GRAY,
+        muted: LOG_DEBUG,
     },
     components: {
         "start": COMPONENT_TEAL,
