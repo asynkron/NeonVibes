@@ -15,6 +15,8 @@ import { getColorKeyFromGroupOrComponent } from "../core/identity.js";
 import { computeServiceColor } from "../core/colorService.js";
 import { hexToRgb } from "../core/colors.js";
 import { mixWithSurface } from "../core/colorService.js";
+import { colorPalettes } from "../core/config.js";
+import { paletteState } from "../core/palette.js";
 
 /**
  * @typedef {import("./trace.js").TraceModel} TraceModel
@@ -171,6 +173,78 @@ function getComponentDeclaration(component) {
   // Mermaid flowcharts support different shapes via classDef, but we'll use standard rectangles
   // and apply styling via classDef later
   return `${escapedId}["${escapedName}"]`;
+}
+
+/**
+ * Gets the current active palette
+ * @returns {Object|null} The active palette object or null if not found
+ */
+function getCurrentPalette() {
+  const activeId = paletteState.activeId;
+  return colorPalettes.find(p => p.id === activeId) || colorPalettes[0] || null;
+}
+
+/**
+ * Generates classDef statements for component kinds using palette colors
+ * @param {string[]} lines - Output lines array
+ */
+function generateComponentClassDefs(lines) {
+  const palette = getCurrentPalette();
+  if (!palette || !palette.components) {
+    // Fallback to default colors if palette not available
+    lines.push("    classDef start fill:#61afef,stroke:#4a90e2,stroke-width:2px");
+    lines.push("    classDef endpoint fill:#98c379,stroke:#7ba05a,stroke-width:2px");
+    lines.push("    classDef service fill:#c678dd,stroke:#9b59b6,stroke-width:2px");
+    lines.push("    classDef actor fill:#e5c07b,stroke:#d19a66,stroke-width:2px");
+    lines.push("    classDef queue fill:#e86671,stroke:#c0392b,stroke-width:2px");
+    lines.push("    classDef queueconsumer fill:#3498db,stroke:#2980b9,stroke-width:2px");
+    lines.push("    classDef workflow fill:#1abc9c,stroke:#16a085,stroke-width:2px");
+    lines.push("    classDef activity fill:#f39c12,stroke:#e67e22,stroke-width:2px");
+    lines.push("    classDef database fill:#95a5a6,stroke:#7f8c8d,stroke-width:2px");
+    lines.push("    classDef subcomponent fill:#34495e,stroke:#2c3e50,stroke-width:1px,stroke-dasharray: 3 3");
+    return;
+  }
+
+  // Helper function to darken a color for stroke
+  const darkenColor = (hex, factor = 0.8) => {
+    const rgb = hexToRgb(hex);
+    if (!rgb) return hex;
+    const r = Math.floor(rgb.r * factor).toString(16).padStart(2, '0');
+    const g = Math.floor(rgb.g * factor).toString(16).padStart(2, '0');
+    const b = Math.floor(rgb.b * factor).toString(16).padStart(2, '0');
+    return `#${r}${g}${b}`;
+  };
+
+  // Map component kinds to palette component keys
+  const componentKindMap = {
+    start: "start",
+    endpoint: "endpoint",
+    service: "service",
+    actor: "actor",
+    queue: "queue",
+    queueconsumer: "queue-consumer",
+    workflow: "workflow",
+    activity: "activity",
+    database: "database",
+    databasestatement: "database-statement",
+    subcomponent: "subcomponent",
+  };
+
+  // Generate classDef for each component kind
+  Object.entries(componentKindMap).forEach(([kind, paletteKey]) => {
+    const color = palette.components[paletteKey];
+    if (color) {
+      const strokeColor = kind === "subcomponent"
+        ? darkenColor(color, 0.7)
+        : darkenColor(color, 0.8);
+      const strokeWidth = kind === "subcomponent" ? "1px" : "2px";
+      const strokeDasharray = kind === "subcomponent" ? ",stroke-dasharray: 3 3" : "";
+      lines.push(`    classDef ${kind} fill:${color},stroke:${strokeColor},stroke-width:${strokeWidth}${strokeDasharray}`);
+    } else {
+      // Fallback if palette doesn't have this component type
+      console.warn(`[generateComponentClassDefs] Palette ${palette.id} missing component color for "${paletteKey}"`);
+    }
+  });
 }
 
 /**
@@ -498,20 +572,12 @@ function renderCallsComponentToComponent(lines, components, calls) {
  * @param {Map<string, Component>} components - Components map
  * @param {Map<string, Group>} groups - Groups map
  * @param {Call[]} calls - Calls array
+ * @param {TraceModel} trace - Trace model for color lookup
  */
 function applyStylingWithSubcomponents(lines, components, groups, calls, trace) {
-  // Add class definitions for different component kinds
+  // Generate class definitions for different component kinds using palette colors
   lines.push("");
-  lines.push("    classDef start fill:#61afef,stroke:#4a90e2,stroke-width:2px");
-  lines.push("    classDef endpoint fill:#98c379,stroke:#7ba05a,stroke-width:2px");
-  lines.push("    classDef service fill:#c678dd,stroke:#9b59b6,stroke-width:2px");
-  lines.push("    classDef actor fill:#e5c07b,stroke:#d19a66,stroke-width:2px");
-  lines.push("    classDef queue fill:#e86671,stroke:#c0392b,stroke-width:2px");
-  lines.push("    classDef queueconsumer fill:#3498db,stroke:#2980b9,stroke-width:2px");
-  lines.push("    classDef workflow fill:#1abc9c,stroke:#16a085,stroke-width:2px");
-  lines.push("    classDef activity fill:#f39c12,stroke:#e67e22,stroke-width:2px");
-  lines.push("    classDef database fill:#95a5a6,stroke:#7f8c8d,stroke-width:2px");
-  lines.push("    classDef subcomponent fill:#34495e,stroke:#2c3e50,stroke-width:1px,stroke-dasharray: 3 3");
+  generateComponentClassDefs(lines);
 
   // Create classDef for each group with its color (same as sequence diagram boxes)
   if (groups && groups.size > 0) {
@@ -540,7 +606,11 @@ function applyStylingWithSubcomponents(lines, components, groups, calls, trace) 
         if (blendedRgb) {
           // Convert RGB to hex
           const hexColor = `#${((1 << 24) + (blendedRgb.r << 16) + (blendedRgb.g << 8) + blendedRgb.b).toString(16).slice(1)}`;
-          lines.push(`    classDef ${groupClassDefName} fill:${hexColor}`);
+          // Add rounded borders and stroke via classDef
+          // Note: Mermaid doesn't support padding in classDef, but rx/ry provide rounded borders
+          const rootStyles = getComputedStyle(document.documentElement);
+          const borderColor = rootStyles.getPropertyValue('--ui-border').trim() || '#3a3a3a';
+          lines.push(`    classDef ${groupClassDefName} fill:${hexColor},stroke:${borderColor},stroke-width:2px,rx:8px,ry:8px`);
         }
       }
     });
@@ -563,7 +633,42 @@ function applyStylingWithSubcomponents(lines, components, groups, calls, trace) 
       databasestatement: "database",
     };
     const className = classMap[kind] || "service";
-    lines.push(`    class ${componentId} ${className}`);
+
+    // Check if this component has subcomponents (rendered as subgraph)
+    const hasSubcomponents = calls.some(
+      (call) => call.toId === component.id && call.operation && call.operation !== ""
+    );
+
+    if (hasSubcomponents) {
+      // Component is rendered as a subgraph, apply rounded border styling
+      // Create a classDef for this component subgraph with rounded borders
+      const componentSubgraphClassDefName = `component_subgraph_${componentId}`;
+      const rootStyles = getComputedStyle(document.documentElement);
+      const borderColor = rootStyles.getPropertyValue('--ui-border').trim() || '#3a3a3a';
+      // Get the component's fill color from palette
+      const palette = getCurrentPalette();
+      const componentKindMap = {
+        start: "start",
+        endpoint: "endpoint",
+        service: "service",
+        actor: "actor",
+        queue: "queue",
+        queueconsumer: "queue-consumer",
+        workflow: "workflow",
+        activity: "activity",
+        database: "database",
+        databasestatement: "database-statement",
+      };
+      const paletteKey = componentKindMap[kind] || "service";
+      const fillColor = palette?.components?.[paletteKey] || '#c678dd';
+
+      // Create classDef for component subgraph with rounded borders
+      lines.push(`    classDef ${componentSubgraphClassDefName} fill:${fillColor},stroke:${borderColor},stroke-width:2px,rx:8px,ry:8px`);
+      lines.push(`    class ${componentId} ${componentSubgraphClassDefName}`);
+    } else {
+      // Regular component node
+      lines.push(`    class ${componentId} ${className}`);
+    }
   });
 
   // Apply group styles to group subgraphs
@@ -601,17 +706,9 @@ function applyStylingWithSubcomponents(lines, components, groups, calls, trace) 
  * @param {TraceModel} trace - Trace model for color lookup
  */
 function applyStylingWithoutSubcomponents(lines, components, groups, trace) {
-  // Add class definitions for different component kinds
+  // Generate class definitions for different component kinds using palette colors
   lines.push("");
-  lines.push("    classDef start fill:#61afef,stroke:#4a90e2,stroke-width:2px");
-  lines.push("    classDef endpoint fill:#98c379,stroke:#7ba05a,stroke-width:2px");
-  lines.push("    classDef service fill:#c678dd,stroke:#9b59b6,stroke-width:2px");
-  lines.push("    classDef actor fill:#e5c07b,stroke:#d19a66,stroke-width:2px");
-  lines.push("    classDef queue fill:#e86671,stroke:#c0392b,stroke-width:2px");
-  lines.push("    classDef queueconsumer fill:#3498db,stroke:#2980b9,stroke-width:2px");
-  lines.push("    classDef workflow fill:#1abc9c,stroke:#16a085,stroke-width:2px");
-  lines.push("    classDef activity fill:#f39c12,stroke:#e67e22,stroke-width:2px");
-  lines.push("    classDef database fill:#95a5a6,stroke:#7f8c8d,stroke-width:2px");
+  generateComponentClassDefs(lines);
 
   // Create classDef for each group with its color (same as sequence diagram boxes)
   if (groups && groups.size > 0) {
@@ -640,7 +737,10 @@ function applyStylingWithoutSubcomponents(lines, components, groups, trace) {
         if (blendedRgb) {
           // Convert RGB to hex
           const hexColor = `#${((1 << 24) + (blendedRgb.r << 16) + (blendedRgb.g << 8) + blendedRgb.b).toString(16).slice(1)}`;
-          lines.push(`    classDef ${groupClassDefName} fill:${hexColor}`);
+          // Add rounded borders and stroke via classDef
+          const rootStyles = getComputedStyle(document.documentElement);
+          const borderColor = rootStyles.getPropertyValue('--ui-border').trim() || '#3a3a3a';
+          lines.push(`    classDef ${groupClassDefName} fill:${hexColor},stroke:${borderColor},stroke-width:2px,rx:8px,ry:8px`);
         }
       }
     });
@@ -712,7 +812,7 @@ function renderSpans(lines, trace) {
     if (description.operation && description.operation !== "") {
       const operationId = escapeMermaidId(span.spanId + "op");
       const escapedOperation = escapeMermaid(description.operation);
-      
+
       // Render component as subgraph containing the operation
       lines.push(`    subgraph ${spanId}["${escapedComponentName}"]`);
       lines.push(`        ${operationId}["${escapedOperation}"]`);
@@ -784,18 +884,9 @@ function renderSpanCalls(lines, trace) {
  * @param {TraceModel} trace - Trace model
  */
 function applySpanStyling(lines, trace) {
-  // Add class definitions for different component kinds
+  // Generate class definitions for different component kinds using palette colors
   lines.push("");
-  lines.push("    classDef start fill:#61afef,stroke:#4a90e2,stroke-width:2px");
-  lines.push("    classDef endpoint fill:#98c379,stroke:#7ba05a,stroke-width:2px");
-  lines.push("    classDef service fill:#c678dd,stroke:#9b59b6,stroke-width:2px");
-  lines.push("    classDef actor fill:#e5c07b,stroke:#d19a66,stroke-width:2px");
-  lines.push("    classDef queue fill:#e86671,stroke:#c0392b,stroke-width:2px");
-  lines.push("    classDef queueconsumer fill:#3498db,stroke:#2980b9,stroke-width:2px");
-  lines.push("    classDef workflow fill:#1abc9c,stroke:#16a085,stroke-width:2px");
-  lines.push("    classDef activity fill:#f39c12,stroke:#e67e22,stroke-width:2px");
-  lines.push("    classDef database fill:#95a5a6,stroke:#7f8c8d,stroke-width:2px");
-  lines.push("    classDef subcomponent fill:#34495e,stroke:#2c3e50,stroke-width:1px,stroke-dasharray: 3 3");
+  generateComponentClassDefs(lines);
 
   // Collect all spans and apply styling
   const allSpans = [];
@@ -1018,25 +1109,50 @@ export function initComponentDiagram(host, spans, config = {}) {
 
       // Initialize Mermaid if available
       if (typeof mermaid !== "undefined") {
+        // Get CSS variables for styling
+        const rootStyles = getComputedStyle(document.documentElement);
+        const borderColor = rootStyles.getPropertyValue('--ui-border').trim() || '#3a3a3a';
+        const textColor = rootStyles.getPropertyValue('--ui-text').trim() || '#d7dce3';
+
         mermaid.initialize({
           startOnLoad: true,
           theme: currentConfig.theme || "dark",
+          themeVariables: {
+            // Cluster/subgraph styling
+            clusterBkg: 'transparent', // We'll set this via classDef per group
+            clusterBorder: borderColor,
+            clusterText: textColor,
+            clusterTextColor: textColor,
+            // Flowchart node styling
+            primaryColor: '#c678dd',
+            primaryTextColor: textColor,
+            primaryBorderColor: borderColor,
+            lineColor: borderColor,
+            secondaryColor: '#98c379',
+            tertiaryColor: '#61afef',
+          },
           flowchart: {
             useMaxWidth: true,
             htmlLabels: true,
             curve: "basis", // Always use smooth curved lines
+            padding: 10, // Add padding around flowchart elements
+            nodeSpacing: 50,
+            rankSpacing: 50,
+            subGraphTitleMargin: {
+              top: 10,
+              bottom: 10,
+            },
           },
         });
 
         // Render the Mermaid diagram
         mermaid.contentLoaded();
 
-        // Apply colors to group subgraphs after rendering
-        // Only apply group colors for generators 1 and 2 (generator 3 doesn't render groups)
+        // Apply colors to group subgraphs after rendering (only for generators 1 and 2)
+        // Note: Mermaid's classDef doesn't work reliably for clusters, so we still need SVG post-processing for colors
         const generator = currentConfig.generator || 3;
         if ((generator === 1 || generator === 2) && trace) {
           // Wait for Mermaid to fully render the SVG before applying colors
-          // Try multiple times with increasing delays to ensure SVG is ready
           const tryApplyColors = (attempt = 0) => {
             const mermaidSvg = host.querySelector("svg");
             if (mermaidSvg) {
