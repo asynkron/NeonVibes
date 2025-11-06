@@ -11,10 +11,7 @@
 import { createComponentKey, ComponentKind } from "./metaModel.js";
 import { escapeMermaid, escapeMermaidId } from "../core/strings.js";
 import { buildTraceModel } from "./trace.js";
-import { getColorKeyFromGroupOrComponent } from "../core/identity.js";
-import { computeServiceColor } from "../core/colorService.js";
 import { hexToRgb } from "../core/colors.js";
-import { mixWithSurface } from "../core/colorService.js";
 import { colorPalettes } from "../core/config.js";
 import { paletteState } from "../core/palette.js";
 
@@ -291,8 +288,9 @@ export function generateComponentDiagram(trace, config = {}) {
 function generateComponent1Diagram(trace, config) {
   const lines = [];
   const { components, groups, calls } = buildComponentModel(trace);
+  const direction = config.leftToRight !== false ? "LR" : "TB"; // Default to LR if not specified
 
-  lines.push("flowchart LR");
+  lines.push(`flowchart ${direction}`);
   renderGroupsWithSubcomponents(lines, components, groups, calls);
   renderCallsWithSubcomponents(lines, components, calls);
   applyStylingWithSubcomponents(lines, components, groups, calls, trace);
@@ -315,8 +313,9 @@ function generateComponent1Diagram(trace, config) {
 function generateComponent2Diagram(trace, config) {
   const lines = [];
   const { components, groups, calls } = buildComponentModel(trace);
+  const direction = config.leftToRight !== false ? "LR" : "TB"; // Default to LR if not specified
 
-  lines.push("flowchart LR");
+  lines.push(`flowchart ${direction}`);
   renderGroupsWithoutSubcomponents(lines, components, groups);
   renderCallsComponentToComponent(lines, components, calls);
   applyStylingWithoutSubcomponents(lines, components, groups, trace);
@@ -338,8 +337,9 @@ function generateComponent2Diagram(trace, config) {
  */
 function generateComponent3Diagram(trace, config) {
   const lines = [];
+  const direction = config.leftToRight !== false ? "LR" : "TB"; // Default to LR if not specified
 
-  lines.push("flowchart LR");
+  lines.push(`flowchart ${direction}`);
   renderSpans(lines, trace);
   renderSpanCalls(lines, trace);
   applySpanStyling(lines, trace);
@@ -594,40 +594,18 @@ function applyStylingWithSubcomponents(lines, components, groups, calls, trace) 
   lines.push("");
   generateComponentClassDefs(lines);
 
-  // Create classDef for each group with its color (same as sequence diagram boxes)
+  // Create classDef for each group using surface-1 color
   if (groups && groups.size > 0) {
+    // Get surface-1 color for all groups
+    const rootStyles = getComputedStyle(document.documentElement);
+    const surface1 = rootStyles.getPropertyValue('--ui-surface-1').trim() || '#242933';
+    const borderColor = rootStyles.getPropertyValue('--ui-border').trim() || '#3a3a3a';
+
     groups.forEach((group) => {
-      // Find a representative component in this group
-      let representativeComponent = null;
-      components.forEach((component) => {
-        if (component.groupId === group.id && !representativeComponent) {
-          representativeComponent = component;
-        }
-      });
-
-      // Use the same color lookup logic as sequence diagram boxes
-      const colorKey = getColorKeyFromGroupOrComponent(group, representativeComponent);
-      const colorHex = computeServiceColor(colorKey, trace);
-      const rgb = hexToRgb(colorHex);
-
-      if (rgb) {
-        const groupId = escapeMermaidId(group.id);
-        const groupClassDefName = `group_${groupId}`;
-        // Use same opacity as sequence diagram boxes (0.05)
-        // Mermaid doesn't support rgba in classDef fill, so blend with background to get hex
-        // Blend color with surface-1 to approximate rgba(r, g, b, 0.05)
-        // Use 0.85 ratio (15% color, 85% background) to match visual appearance of rgba(0.05)
-        const blendedRgb = mixWithSurface(colorHex, '--surface-1', 0.85);
-        if (blendedRgb) {
-          // Convert RGB to hex
-          const hexColor = `#${((1 << 24) + (blendedRgb.r << 16) + (blendedRgb.g << 8) + blendedRgb.b).toString(16).slice(1)}`;
-          // Add rounded borders and stroke via classDef
-          // Note: Mermaid doesn't support padding in classDef, but rx/ry provide rounded borders
-          const rootStyles = getComputedStyle(document.documentElement);
-          const borderColor = rootStyles.getPropertyValue('--ui-border').trim() || '#3a3a3a';
-          lines.push(`    classDef ${groupClassDefName} fill:${hexColor},stroke:${borderColor},stroke-width:2px,rx:8px,ry:8px`);
-        }
-      }
+      const groupId = escapeMermaidId(group.id);
+      const groupClassDefName = `group_${groupId}`;
+      // Use surface-1 color for all groups
+      lines.push(`    classDef ${groupClassDefName} fill:${surface1},stroke:${borderColor},stroke-width:2px,rx:8px,ry:8px`);
     });
   }
 
@@ -725,39 +703,18 @@ function applyStylingWithoutSubcomponents(lines, components, groups, trace) {
   lines.push("");
   generateComponentClassDefs(lines);
 
-  // Create classDef for each group with its color (same as sequence diagram boxes)
+  // Create classDef for each group using surface-1 color
   if (groups && groups.size > 0) {
+    // Get surface-1 color for all groups
+    const rootStyles = getComputedStyle(document.documentElement);
+    const surface1 = rootStyles.getPropertyValue('--ui-surface-1').trim() || '#242933';
+    const borderColor = rootStyles.getPropertyValue('--ui-border').trim() || '#3a3a3a';
+
     groups.forEach((group) => {
-      // Find a representative component in this group
-      let representativeComponent = null;
-      components.forEach((component) => {
-        if (component.groupId === group.id && !representativeComponent) {
-          representativeComponent = component;
-        }
-      });
-
-      // Use the same color lookup logic as sequence diagram boxes
-      const colorKey = getColorKeyFromGroupOrComponent(group, representativeComponent);
-      const colorHex = computeServiceColor(colorKey, trace);
-      const rgb = hexToRgb(colorHex);
-
-      if (rgb) {
-        const groupId = escapeMermaidId(group.id);
-        const groupClassDefName = `group_${groupId}`;
-        // Use same opacity as sequence diagram boxes (0.05)
-        // Mermaid doesn't support rgba in classDef fill, so blend with background to get hex
-        // Blend color with surface-1 to approximate rgba(r, g, b, 0.05)
-        // Use 0.85 ratio (15% color, 85% background) to match visual appearance of rgba(0.05)
-        const blendedRgb = mixWithSurface(colorHex, '--surface-1', 0.85);
-        if (blendedRgb) {
-          // Convert RGB to hex
-          const hexColor = `#${((1 << 24) + (blendedRgb.r << 16) + (blendedRgb.g << 8) + blendedRgb.b).toString(16).slice(1)}`;
-          // Add rounded borders and stroke via classDef
-          const rootStyles = getComputedStyle(document.documentElement);
-          const borderColor = rootStyles.getPropertyValue('--ui-border').trim() || '#3a3a3a';
-          lines.push(`    classDef ${groupClassDefName} fill:${hexColor},stroke:${borderColor},stroke-width:2px,rx:8px,ry:8px`);
-        }
-      }
+      const groupId = escapeMermaidId(group.id);
+      const groupClassDefName = `group_${groupId}`;
+      // Use surface-1 color for all groups
+      lines.push(`    classDef ${groupClassDefName} fill:${surface1},stroke:${borderColor},stroke-width:2px,rx:8px,ry:8px`);
     });
   }
 
@@ -974,81 +931,70 @@ function applyGroupSubgraphColors(host, trace) {
     return;
   }
 
+  // Get surface-1 color for all groups
+  const rootStyles = getComputedStyle(document.documentElement);
+  const surface1 = rootStyles.getPropertyValue('--ui-surface-1').trim() || '#242933';
+
   // Mermaid renders subgraphs as <g> elements with class "cluster"
   trace.groups.forEach((group) => {
     const escapedGroupId = escapeMermaidId(group.id);
 
-    // Find a representative component in this group
-    let representativeComponent = null;
-    trace.components.forEach((component) => {
-      if (component.groupId === group.id && !representativeComponent) {
-        representativeComponent = component;
-      }
-    });
+    // Use surface-1 color for all groups
+    const fillColor = surface1;
 
-    // Use the same color lookup logic as sequence diagram boxes
-    const colorKey = getColorKeyFromGroupOrComponent(group, representativeComponent);
-    const colorHex = computeServiceColor(colorKey, trace);
-    const rgb = hexToRgb(colorHex);
+    // Find cluster groups - Mermaid uses class "cluster" for subgraphs
+    // Try multiple selectors to find the right cluster
+    let clusterGroup = null;
 
-    if (rgb) {
-      // Use same opacity as sequence diagram boxes (0.05)
-      const fillColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.05)`;
+    // Method 1: Find by ID containing the group ID
+    const idMatch = mermaidSvg.querySelector(`g[id*="${escapedGroupId}"]`);
+    if (idMatch && idMatch.classList.contains('cluster')) {
+      clusterGroup = idMatch;
+    }
 
-      // Find cluster groups - Mermaid uses class "cluster" for subgraphs
-      // Try multiple selectors to find the right cluster
-      let clusterGroup = null;
-
-      // Method 1: Find by ID containing the group ID
-      const idMatch = mermaidSvg.querySelector(`g[id*="${escapedGroupId}"]`);
-      if (idMatch && idMatch.classList.contains('cluster')) {
-        clusterGroup = idMatch;
-      }
-
-      // Method 2: Find all clusters and match by text content (group name)
-      if (!clusterGroup) {
-        const allClusters = mermaidSvg.querySelectorAll('g.cluster');
-        allClusters.forEach((cluster) => {
-          const textElements = cluster.querySelectorAll('text');
-          for (const textEl of textElements) {
-            if (textEl.textContent.trim() === group.name) {
-              clusterGroup = cluster;
-              break;
-            }
+    // Method 2: Find all clusters and match by text content (group name)
+    if (!clusterGroup) {
+      const allClusters = mermaidSvg.querySelectorAll('g.cluster');
+      allClusters.forEach((cluster) => {
+        const textElements = cluster.querySelectorAll('text');
+        for (const textEl of textElements) {
+          if (textEl.textContent.trim() === group.name) {
+            clusterGroup = cluster;
+            break;
           }
-        });
-      }
-
-      // Method 3: Find by position/order if we have a reliable way
-      if (!clusterGroup && trace.groups.size > 0) {
-        const allClusters = Array.from(mermaidSvg.querySelectorAll('g.cluster'));
-        const groupIndex = Array.from(trace.groups.values()).indexOf(group);
-        if (groupIndex >= 0 && groupIndex < allClusters.length) {
-          clusterGroup = allClusters[groupIndex];
         }
+      });
+    }
+
+    // Method 3: Find by position/order if we have a reliable way
+    if (!clusterGroup && trace.groups.size > 0) {
+      const allClusters = Array.from(mermaidSvg.querySelectorAll('g.cluster'));
+      const groupIndex = Array.from(trace.groups.values()).indexOf(group);
+      if (groupIndex >= 0 && groupIndex < allClusters.length) {
+        clusterGroup = allClusters[groupIndex];
       }
+    }
 
-      if (clusterGroup) {
-        // Find the background rectangle (largest rect in the cluster)
-        const rects = clusterGroup.querySelectorAll('rect');
-        let backgroundRect = null;
-        let maxArea = 0;
+    if (clusterGroup) {
+      // Find the background rectangle (largest rect in the cluster)
+      const rects = clusterGroup.querySelectorAll('rect');
+      let backgroundRect = null;
+      let maxArea = 0;
 
-        rects.forEach((rect) => {
-          const width = parseFloat(rect.getAttribute('width') || '0');
-          const height = parseFloat(rect.getAttribute('height') || '0');
-          const area = width * height;
-          if (area > maxArea && area > 100) {
-            maxArea = area;
-            backgroundRect = rect;
-          }
-        });
-
-        if (backgroundRect) {
-          backgroundRect.setAttribute('fill', fillColor);
-          backgroundRect.style.fill = fillColor;
-          backgroundRect.removeAttribute('fill-opacity');
+      rects.forEach((rect) => {
+        const width = parseFloat(rect.getAttribute('width') || '0');
+        const height = parseFloat(rect.getAttribute('height') || '0');
+        const area = width * height;
+        if (area > maxArea && area > 100) {
+          maxArea = area;
+          backgroundRect = rect;
         }
+      });
+
+      if (backgroundRect) {
+        backgroundRect.setAttribute('fill', fillColor);
+        backgroundRect.style.fill = fillColor;
+        backgroundRect.removeAttribute('fill-opacity');
       }
     }
   });
@@ -1071,6 +1017,7 @@ export function initComponentDiagram(host, spans, config = {}) {
   // Find the generator selector dropdown
   const section = host.closest('.component-diagram-section');
   const generatorSelect = section?.querySelector('.component-diagram-generator-select');
+  const directionSelect = section?.querySelector('.component-diagram-direction-select');
 
   let currentConfig = { ...DEFAULT_CONFIG, ...config };
   let mermaidDiagram = "";
@@ -1088,6 +1035,20 @@ export function initComponentDiagram(host, spans, config = {}) {
     // Initialize selector value from config
     const initialGenerator = currentConfig.generator || 3;
     generatorSelect.value = initialGenerator.toString();
+  }
+
+  // Update config when direction selector changes
+  if (directionSelect) {
+    directionSelect.addEventListener('change', (event) => {
+      const directionValue = event.target.value;
+      currentConfig = { ...currentConfig, leftToRight: directionValue === 'LR' };
+      console.log(`[initComponentDiagram] Direction changed to ${directionValue}`);
+      render();
+    });
+
+    // Initialize selector value from config
+    const initialDirection = currentConfig.leftToRight !== false ? 'LR' : 'TB';
+    directionSelect.value = initialDirection;
   }
 
   const render = async () => {
@@ -1191,16 +1152,16 @@ export function initComponentDiagram(host, spans, config = {}) {
             htmlLabels: true,
             curve: "basis", // Always use smooth curved lines
             padding: 20, // Add padding around flowchart elements
-            nodeSpacing: 0,
-            rankSpacing: 0,
+            nodeSpacing: 50, // Horizontal spacing between nodes (increased to prevent overlap)
+            rankSpacing: 50, // Vertical spacing between ranks (increased to prevent overlap)
             diagramMarginX: 50, // Horizontal margin around the diagram
             diagramMarginY: 10, // Vertical margin around the diagram
             wrap: false, // Enable text wrapping for node labels
             wrapPadding: 10, // Padding for wrapped text
             wrapWidth: 150, // Width before wrapping
             subGraphTitleMargin: {
-              top: 15,
-              bottom: 10,
+              top: 30, // Increased top margin to prevent title from being hidden
+              bottom: 15, // Increased bottom margin for better spacing
             },
           },
         });
