@@ -9,6 +9,8 @@ import { getColorKeyFromGroupOrComponent, getColorKeyFromComponent } from "../co
 import { computeServiceColor, computeServiceColorRgb, mixWithSurface } from "../core/colorService.js";
 import { hexToRgb } from "../core/colors.js";
 import { escapeMermaid, escapeMermaidId } from "../core/strings.js";
+import { colorPalettes } from "../core/config.js";
+import { paletteState } from "../core/palette.js";
 
 /**
  * @typedef {import("./trace.js").TraceModel} TraceModel
@@ -92,6 +94,46 @@ export function generateSequenceDiagram(trace, config = {}) {
 }
 
 /**
+ * Gets the currently active palette
+ * @returns {Object|null} Active palette or null
+ */
+function getCurrentPalette() {
+  const activeId = paletteState.activeId;
+  return colorPalettes.find(p => p.id === activeId) || colorPalettes[0] || null;
+}
+
+/**
+ * Gets component color from palette based on component kind
+ * @param {Component} component - Component to get color for
+ * @returns {string|null} Color hex string or null
+ */
+function getComponentColorFromPalette(component) {
+  const palette = getCurrentPalette();
+  if (!palette || !palette.components) {
+    return null;
+  }
+
+  // Map component kinds to palette component keys (same as component diagrams)
+  const componentKindMap = {
+    start: "start",
+    endpoint: "endpoint",
+    service: "service",
+    actor: "actor",
+    queue: "queue",
+    queueconsumer: "queue-consumer",
+    workflow: "workflow",
+    activity: "activity",
+    database: "database",
+    databasestatement: "database-statement",
+    subcomponent: "subcomponent",
+  };
+
+  const kind = (component.kind || ComponentKind.SERVICE).toLowerCase();
+  const paletteKey = componentKindMap[kind] || "service";
+  return palette.components[paletteKey] || null;
+}
+
+/**
  * Renders participants (components) from the metamodel
  * @param {string[]} lines - Output lines array
  * @param {TraceModel} trace - Trace model
@@ -153,20 +195,16 @@ function renderParticipants(lines, trace) {
     console.log(`[renderParticipants] Found ${groupComponents.length} components for group ${groupName}`);
 
     if (groupComponents.length > 0) {
-      // Use group name for color lookup (same as trace component: groupName || serviceName)
-      const firstComponent = groupComponents[0];
-      const colorKey = getColorKeyFromGroupOrComponent(group, firstComponent);
+      // Use surface-3 color for group boxes
+      const rootStyles = getComputedStyle(document.documentElement);
+      const surface3 = rootStyles.getPropertyValue('--ui-surface-3').trim() || '#12161e';
+      const rgb = hexToRgb(surface3);
+
       let boxColor = "";
-      if (colorKey) {
-        const color = computeServiceColor(colorKey, trace);
-        if (color) {
-          const rgb = hexToRgb(color);
-          if (rgb) {
-            // Use more transparent color for the box background
-            boxColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.05)`;
-            console.log(`[renderParticipants] Box color for group ${groupName}: ${boxColor} (colorKey: ${colorKey}, group.name: ${group.name}, component.serviceName: ${firstComponent?.serviceName})`);
-          }
-        }
+      if (rgb) {
+        // Use rgba format for Mermaid box syntax
+        boxColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 1.0)`;
+        console.log(`[renderParticipants] Box color for group ${groupName}: ${boxColor} (using surface-3)`);
       }
 
       // Mermaid box syntax: box [color] name
@@ -248,7 +286,7 @@ function getComponentDeclaration(component) {
 
 /**
  * Applies colors directly to participant header rectangles in the rendered SVG
- * Colors are mixed with --surface-1 to blend with the background
+ * Uses component kind-based colors from the palette (same as component diagrams)
  * @param {HTMLElement} host - Container element with the rendered Mermaid diagram
  * @param {TraceModel} trace - Trace model with components and serviceNameMapping
  */
@@ -269,31 +307,49 @@ function applyParticipantColors(host, trace) {
   // Find all participant header rectangles by their name attribute
   // Example: <rect class="actor actor-top" name="edge_gateway_Internal" ...>
   trace.components.forEach((component) => {
-    // Use centralized identity helper to get color key
-    const colorKey = getColorKeyFromComponent(component, trace);
+    // Get component color from palette based on component kind
+    const colorHex = getComponentColorFromPalette(component);
 
-    if (colorKey) {
-      const escapedId = escapeMermaidId(component.id);
-      // Use centralized color service to compute and mix with surface
-      const mixedRgb = mixWithSurface(computeServiceColor(colorKey, trace), '--surface-1', 0.75);
-
-      if (mixedRgb) {
-        // Find all rects with this name attribute (typically actor-top and actor-bottom)
-        const rects = mermaidSvg.querySelectorAll(`rect[name="${escapedId}"]`);
-
-        if (rects.length > 0) {
-          rects.forEach((rect) => {
-            // Use style property instead of setAttribute to override CSS
-            // Use mixed color with surface-1 (alpha 1.0) so swimlane lines don't show through
-            rect.style.fill = `rgba(${mixedRgb.r}, ${mixedRgb.g}, ${mixedRgb.b}, 1.0)`;
-            rect.style.stroke = `rgba(${mixedRgb.r}, ${mixedRgb.g}, ${mixedRgb.b}, 1.0)`;
-            rect.style.strokeWidth = "2px";
-          });
-
-          console.log(`[applyParticipantColors] Applied mixed color to ${rects.length} rect(s) with name="${escapedId}" (colorKey: ${colorKey}, serviceName: ${component.serviceName}): rgba(${mixedRgb.r}, ${mixedRgb.g}, ${mixedRgb.b}, 1.0)`);
-        } else {
-          console.warn(`[applyParticipantColors] No rects found with name="${escapedId}"`);
+    if (!colorHex) {
+      // Fallback to computed service color if palette doesn't have component color
+      const colorKey = getColorKeyFromComponent(component, trace);
+      if (colorKey) {
+        const escapedId = escapeMermaidId(component.id);
+        const color = computeServiceColor(colorKey, trace);
+        const rgb = hexToRgb(color);
+        if (rgb) {
+          const rects = mermaidSvg.querySelectorAll(`rect[name="${escapedId}"]`);
+          if (rects.length > 0) {
+            rects.forEach((rect) => {
+              rect.style.fill = color;
+              rect.style.stroke = color;
+              rect.style.strokeWidth = "2px";
+            });
+          }
         }
+      }
+      return;
+    }
+
+    const escapedId = escapeMermaidId(component.id);
+    const rgb = hexToRgb(colorHex);
+
+    if (rgb) {
+      // Use component color directly without mixing (same as component diagrams)
+      const rects = mermaidSvg.querySelectorAll(`rect[name="${escapedId}"]`);
+
+      if (rects.length > 0) {
+        rects.forEach((rect) => {
+          // Use style property instead of setAttribute to override CSS
+          // Use color directly without mixing
+          rect.style.fill = colorHex;
+          rect.style.stroke = colorHex;
+          rect.style.strokeWidth = "2px";
+        });
+
+        console.log(`[applyParticipantColors] Applied palette color to ${rects.length} rect(s) with name="${escapedId}" (kind: ${component.kind}, color: ${colorHex})`);
+      } else {
+        console.warn(`[applyParticipantColors] No rects found with name="${escapedId}"`);
       }
     }
   });
@@ -808,10 +864,10 @@ export function initSequenceDiagram(host, spans, config = {}) {
       if (typeof mermaid !== "undefined") {
         console.log("[initSequenceDiagram] Initializing Mermaid with theme:", config.theme || "dark");
 
-        // Get CSS variables for note styling
+        // Get CSS variables for styling
         const rootStyles = getComputedStyle(document.documentElement);
-        const surface2 = rootStyles.getPropertyValue('--surface-2').trim() || '#1f2020';
-        const borderColor = rootStyles.getPropertyValue('--border').trim() || '#3a3a3a';
+        const surface2 = rootStyles.getPropertyValue('--ui-surface-2').trim() || rootStyles.getPropertyValue('--surface-2').trim() || '#1e2129';
+        const borderColor = rootStyles.getPropertyValue('--ui-border').trim() || rootStyles.getPropertyValue('--border').trim() || '#3a3a3a';
 
         console.log("[initSequenceDiagram] Note styling - surface-2:", surface2, "border:", borderColor);
 
@@ -819,6 +875,8 @@ export function initSequenceDiagram(host, spans, config = {}) {
           startOnLoad: true,
           theme: config.theme || "dark",
           themeVariables: {
+            // Set main background to surface-2
+            mainBkg: surface2,
             // Set actor fill to transparent so we can control it
             actorBkg: 'transparent',
             actorBorder: '#81B1DB',
