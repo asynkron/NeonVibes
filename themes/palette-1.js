@@ -3,34 +3,79 @@
  * Normalized colors for consistent brightness and saturation
  */
 
+// Color constants
+const PRIMARY = "#ef476f";
+const SECONDARY = "#fbbf24";
+const TERTIARY = "#10b981";
+const QUATERNARY = "#06b6d4";
+const QUINARY = "#6366f1";
+const SENARY = "#8b5cf6";
+const DEBUG_GRAY = "#6b7280";
+const INFO_BLUE = "#3b82f6";
+const WARNING_AMBER = "#f59e0b";
+const ERROR_RED = "#dc2626";
+const BACKGROUND1 = "#242933";
+const BACKGROUND2 = "#1e2129";
+const BACKGROUND3 = "#12161e";
+const TEXT = "#d7dce3";
+const WHITE = "#ffffff";
+const HIGHLIGHT = "rgba(255, 255, 255, 0.05)";
+const BORDER = "#3a404c";
+
+// Component colors
+const COMPONENT_TEAL = "#1abc9c";
+const COMPONENT_ORANGE = "#f39c12";
+const COMPONENT_GRAY = "#95a5a6";
+const COMPONENT_GREEN = "#98c379";
+const COMPONENT_BLUE = "#3498db";
+const COMPONENT_PURPLE = "#c678dd";
+const COMPONENT_DARK_GRAY = "#34495e";
+
 export const palette1 = {
     id: "palette-1",
     label: "Palette 1 — Gravibe Sunrise",
     palette: {
-        // Normalized to ~65% lightness, ~80% saturation for consistency
-        primary: "#ef476f",      // Pink/coral (kept - already good)
-        secondary: "#fbbf24",    // Amber/yellow (adjusted from #ffd166 for consistency)
-        tertiary: "#10b981",    // Emerald green (adjusted from #06d6a0)
-        quaternary: "#06b6d4",  // Cyan (adjusted from #00c0ff)
-        quinary: "#6366f1",      // Indigo (replaced dark #073b4c - too dark for accent)
-        senary: "#8b5cf6",       // Violet (replaced dark #073b4c)
+        primary: PRIMARY,
+        secondary: SECONDARY,
+        tertiary: TERTIARY,
+        quaternary: QUATERNARY,
+        quinary: QUINARY,
+        senary: SENARY,
     },
     logging: {
-        debug: "#6b7280",
-        information: "#3b82f6",
-        warning: "#f59e0b",
-        error: "#ef476f",        // Matches primary
-        critical: "#dc2626",
-        event: "#10b981",        // Matches tertiary
-        span: "#06b6d4",         // Matches quaternary
+        debug: DEBUG_GRAY,
+        information: INFO_BLUE,
+        warning: WARNING_AMBER,
+        error: PRIMARY,
+        critical: ERROR_RED,
+        event: TERTIARY,
+        span: QUATERNARY,
     },
     ui: {
-        "surface-1": "#242933",
-        "surface-2": "#1e2129",
-        "surface-3": "#12161e",
-        text: "#d7dce3",
-        headers: "#ffffff",
-        highlight: "rgba(255, 255, 255, 0.05)",
-        border: "#3a404c",
+        "surface-1": BACKGROUND1,
+        "surface-2": BACKGROUND2,
+        "surface-3": BACKGROUND3,
+        text: TEXT,
+        headers: WHITE,
+        highlight: HIGHLIGHT,
+        border: BORDER,
+        success: TERTIARY,
+        warning: WARNING_AMBER,
+        info: INFO_BLUE,
+        danger: PRIMARY,
+        muted: DEBUG_GRAY,
+    },
+    components: {
+        "start": COMPONENT_TEAL,
+        "database": COMPONENT_ORANGE,
+        "queue": COMPONENT_ORANGE,
+        "database-statement": COMPONENT_GRAY,
+        "workflow": COMPONENT_GREEN,
+        "actor": COMPONENT_GREEN,
+        "activity": COMPONENT_BLUE,
+        "queue-consumer": COMPONENT_BLUE,
+        "endpoint": COMPONENT_BLUE,
+        "service": COMPONENT_PURPLE,
+        "subcomponent": COMPONENT_DARK_GRAY,
     },
 };

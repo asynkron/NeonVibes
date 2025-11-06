@@ -3,34 +3,77 @@
  * Popular Material Design-inspired dark theme
  */
 
+// Color constants
+const PRIMARY = "#f07178";
+const SECONDARY = "#ffcb6b";
+const TERTIARY = "#c3e88d";
+const QUATERNARY = "#89ddff";
+const QUINARY = "#82aaff";
+const SENARY = "#c792ea";
+const DEBUG_GRAY = "#546e7a";
+const CRITICAL_RED = "#ff5370";
+const BACKGROUND1 = "#263238";
+const BACKGROUND2 = "#2e3c43";
+const BACKGROUND3 = "#1e272c";
+const TEXT = "#eeffff";
+const WHITE = "#ffffff";
+const HIGHLIGHT = "rgba(255, 255, 255, 0.05)";
+const BORDER = "#37474f";
+
+// Component colors
+const COMPONENT_TEAL = "#1abc9c";
+const COMPONENT_ORANGE = "#f39c12";
+const COMPONENT_GRAY = "#95a5a6";
+const COMPONENT_GREEN = "#98c379";
+const COMPONENT_BLUE = "#3498db";
+const COMPONENT_PURPLE = "#c678dd";
+const COMPONENT_DARK_GRAY = "#34495e";
+
 export const palette15 = {
     id: "palette-15",
     label: "Palette 15 — Material Theme",
     palette: {
-        primary: "#f07178",       // Red
-        secondary: "#ffcb6b",     // Yellow/Orange
-        tertiary: "#c3e88d",      // Green
-        quaternary: "#89ddff",    // Cyan
-        quinary: "#82aaff",       // Blue
-        senary: "#c792ea",        // Purple
+        primary: PRIMARY,
+        secondary: SECONDARY,
+        tertiary: TERTIARY,
+        quaternary: QUATERNARY,
+        quinary: QUINARY,
+        senary: SENARY,
     },
     logging: {
-        debug: "#546e7a",         // Gray
-        information: "#82aaff",   // Blue
-        warning: "#ffcb6b",       // Yellow
-        error: "#f07178",         // Red
-        critical: "#ff5370",
-        event: "#c3e88d",         // Green
-        span: "#89ddff",           // Cyan
+        debug: DEBUG_GRAY,
+        information: QUINARY,
+        warning: SECONDARY,
+        error: PRIMARY,
+        critical: CRITICAL_RED,
+        event: TERTIARY,
+        span: QUATERNARY,
     },
     ui: {
-        "surface-1": "#263238",   // Material dark background
-        "surface-2": "#2e3c43",   // Slightly lighter
-        "surface-3": "#1e272c",   // Darker accent
-        text: "#eeffff",          // Material foreground
-        headers: "#ffffff",
-        highlight: "rgba(255, 255, 255, 0.05)",
-        border: "#37474f",
+        "surface-1": BACKGROUND1,
+        "surface-2": BACKGROUND2,
+        "surface-3": BACKGROUND3,
+        text: TEXT,
+        headers: WHITE,
+        highlight: HIGHLIGHT,
+        border: BORDER,
+        success: TERTIARY,
+        warning: SECONDARY,
+        info: QUINARY,
+        danger: PRIMARY,
+        muted: DEBUG_GRAY,
+    },
+    components: {
+        "start": COMPONENT_TEAL,
+        "database": COMPONENT_ORANGE,
+        "queue": COMPONENT_ORANGE,
+        "database-statement": COMPONENT_GRAY,
+        "workflow": COMPONENT_GREEN,
+        "actor": COMPONENT_GREEN,
+        "activity": COMPONENT_BLUE,
+        "queue-consumer": COMPONENT_BLUE,
+        "endpoint": COMPONENT_BLUE,
+        "service": COMPONENT_PURPLE,
+        "subcomponent": COMPONENT_DARK_GRAY,
     },
 };
-

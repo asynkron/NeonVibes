@@ -3,34 +3,77 @@
  * Popular carefully designed light theme
  */
 
+// Color constants
+const PRIMARY = "#dc322f";
+const SECONDARY = "#cb4b16";
+const TERTIARY = "#859900";
+const QUATERNARY = "#2aa198";
+const QUINARY = "#268bd2";
+const SENARY = "#6c71c4";
+const DEBUG_GRAY = "#93a1a1";
+const WARNING_YELLOW = "#b58900";
+const BACKGROUND1 = "#fdf6e3";
+const BACKGROUND2 = "#eee8d5";
+const BACKGROUND3 = "#f5f0e3";
+const TEXT = "#586e75";
+const HEADERS = "#073642";
+const HIGHLIGHT = "rgba(0, 0, 0, 0.05)";
+const BORDER = "#e4dac8";
+
+// Component colors
+const COMPONENT_TEAL = "#1abc9c";
+const COMPONENT_ORANGE = "#f39c12";
+const COMPONENT_GRAY = "#95a5a6";
+const COMPONENT_GREEN = "#98c379";
+const COMPONENT_BLUE = "#3498db";
+const COMPONENT_PURPLE = "#c678dd";
+const COMPONENT_DARK_GRAY = "#34495e";
+
 export const palette12 = {
     id: "palette-12",
     label: "Palette 12 — Solarized Light",
     palette: {
-        primary: "#dc322f",       // Red
-        secondary: "#cb4b16",     // Orange
-        tertiary: "#859900",      // Green
-        quaternary: "#2aa198",    // Cyan
-        quinary: "#268bd2",       // Blue
-        senary: "#6c71c4",        // Violet
+        primary: PRIMARY,
+        secondary: SECONDARY,
+        tertiary: TERTIARY,
+        quaternary: QUATERNARY,
+        quinary: QUINARY,
+        senary: SENARY,
     },
     logging: {
-        debug: "#93a1a1",         // Base1
-        information: "#268bd2",   // Blue
-        warning: "#b58900",       // Yellow
-        error: "#dc322f",         // Red
-        critical: "#cb4b16",      // Orange
-        event: "#859900",         // Green
-        span: "#2aa198",          // Cyan
+        debug: DEBUG_GRAY,
+        information: QUINARY,
+        warning: WARNING_YELLOW,
+        error: PRIMARY,
+        critical: SECONDARY,
+        event: TERTIARY,
+        span: QUATERNARY,
     },
     ui: {
-        "surface-1": "#fdf6e3",   // Base3
-        "surface-2": "#eee8d5",   // Base2
-        "surface-3": "#f5f0e3",   // Lighter base3
-        text: "#586e75",          // Base01
-        headers: "#073642",       // Base02
-        highlight: "rgba(0, 0, 0, 0.05)",
-        border: "#e4dac8",
+        "surface-1": BACKGROUND1,
+        "surface-2": BACKGROUND2,
+        "surface-3": BACKGROUND3,
+        text: TEXT,
+        headers: HEADERS,
+        highlight: HIGHLIGHT,
+        border: BORDER,
+        success: TERTIARY,
+        warning: WARNING_YELLOW,
+        info: QUINARY,
+        danger: PRIMARY,
+        muted: DEBUG_GRAY,
+    },
+    components: {
+        "start": COMPONENT_TEAL,
+        "database": COMPONENT_ORANGE,
+        "queue": COMPONENT_ORANGE,
+        "database-statement": COMPONENT_GRAY,
+        "workflow": COMPONENT_GREEN,
+        "actor": COMPONENT_GREEN,
+        "activity": COMPONENT_BLUE,
+        "queue-consumer": COMPONENT_BLUE,
+        "endpoint": COMPONENT_BLUE,
+        "service": COMPONENT_PURPLE,
+        "subcomponent": COMPONENT_DARK_GRAY,
     },
 };
-

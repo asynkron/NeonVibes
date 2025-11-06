@@ -3,34 +3,78 @@
  * Classic code editor theme inspired by Monokai (Sublime Text)
  */
 
+// Color constants
+const PRIMARY = "#f92672";
+const SECONDARY = "#e6db74";
+const TERTIARY = "#a6e22e";
+const QUATERNARY = "#66d9ef";
+const QUINARY = "#fd971f";
+const SENARY = "#ae81ff";
+const DEBUG_GRAY = "#75715e";
+const CRITICAL_RED = "#cc6666";
+const BACKGROUND1 = "#272822";
+const BACKGROUND2 = "#2c2d27";
+const BACKGROUND3 = "#1e1f1a";
+const TEXT = "#f8f8f2";
+const WHITE = "#ffffff";
+const HIGHLIGHT = "rgba(255, 255, 255, 0.05)";
+const BORDER = "#3e3e3e";
+
+// Component colors
+const COMPONENT_TEAL = "#1abc9c";
+const COMPONENT_ORANGE = "#f39c12";
+const COMPONENT_GRAY = "#95a5a6";
+const COMPONENT_GREEN = "#98c379";
+const COMPONENT_BLUE = "#3498db";
+const COMPONENT_PURPLE = "#c678dd";
+const COMPONENT_DARK_GRAY = "#34495e";
+
 export const palette5 = {
     id: "palette-5",
     label: "Palette 5 — Monokai",
     palette: {
-        primary: "#f92672",      // Pink/magenta
-        secondary: "#e6db74",    // Yellow
-        tertiary: "#a6e22e",     // Green
-        quaternary: "#66d9ef",    // Cyan
-        quinary: "#fd971f",      // Orange
-        senary: "#ae81ff",        // Purple
+        primary: PRIMARY,
+        secondary: SECONDARY,
+        tertiary: TERTIARY,
+        quaternary: QUATERNARY,
+        quinary: QUINARY,
+        senary: SENARY,
     },
     logging: {
-        debug: "#75715e",
-        information: "#66d9ef",   // Cyan
-        warning: "#e6db74",       // Yellow
-        error: "#f92672",         // Pink
-        critical: "#cc6666",
-        event: "#a6e22e",         // Green
-        span: "#ae81ff",          // Purple
+        debug: DEBUG_GRAY,
+        information: QUATERNARY,
+        warning: SECONDARY,
+        error: PRIMARY,
+        critical: CRITICAL_RED,
+        event: TERTIARY,
+        span: SENARY,
     },
     ui: {
-        "surface-1": "#272822",    // Monokai background
-        "surface-2": "#2c2d27",   // Slightly lighter
-        "surface-3": "#1e1f1a",   // Darker accent
-        text: "#f8f8f2",          // Monokai foreground
-        headers: "#ffffff",
-        highlight: "rgba(255, 255, 255, 0.05)",
-        border: "#3e3e3e",
+        "surface-1": BACKGROUND1,
+        "surface-2": BACKGROUND2,
+        "surface-3": BACKGROUND3,
+        text: TEXT,
+        headers: WHITE,
+        highlight: HIGHLIGHT,
+        border: BORDER,
+        success: TERTIARY,
+        warning: SECONDARY,
+        info: QUATERNARY,
+        danger: PRIMARY,
+        muted: DEBUG_GRAY,
+    },
+    components: {
+        "start": COMPONENT_TEAL,
+        "database": COMPONENT_ORANGE,
+        "queue": COMPONENT_ORANGE,
+        "database-statement": COMPONENT_GRAY,
+        "workflow": COMPONENT_GREEN,
+        "actor": COMPONENT_GREEN,
+        "activity": COMPONENT_BLUE,
+        "queue-consumer": COMPONENT_BLUE,
+        "endpoint": COMPONENT_BLUE,
+        "service": COMPONENT_PURPLE,
+        "subcomponent": COMPONENT_DARK_GRAY,
     },
 };
 

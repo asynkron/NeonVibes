@@ -3,34 +3,79 @@
  * Retro groove color scheme popular in Vim/terminal editors
  */
 
+// Color constants
+const PRIMARY = "#fb4934";
+const SECONDARY = "#fe8019";
+const TERTIARY = "#b8bb26";
+const QUATERNARY = "#83a598";
+const QUINARY = "#458588";
+const SENARY = "#d3869b";
+const DEBUG_GRAY = "#928374";
+const WARNING_YELLOW = "#fabd2f";
+const CRITICAL_RED = "#cc241d";
+const BACKGROUND1 = "#282828";
+const BACKGROUND2 = "#3c3836";
+const BACKGROUND3 = "#1d2021";
+const TEXT = "#ebdbb2";
+const HEADERS = "#fbf1c7";
+const HIGHLIGHT = "rgba(255, 255, 255, 0.05)";
+const BORDER = "#504945";
+
+// Component colors
+const COMPONENT_TEAL = "#1abc9c";
+const COMPONENT_ORANGE = "#f39c12";
+const COMPONENT_GRAY = "#95a5a6";
+const COMPONENT_GREEN = "#98c379";
+const COMPONENT_BLUE = "#3498db";
+const COMPONENT_PURPLE = "#c678dd";
+const COMPONENT_DARK_GRAY = "#34495e";
+
 export const palette7 = {
     id: "palette-7",
     label: "Palette 7 — Gruvbox",
     palette: {
-        primary: "#fb4934",       // Red
-        secondary: "#fe8019",     // Orange
-        tertiary: "#b8bb26",     // Green
-        quaternary: "#83a598",    // Aqua/cyan
-        quinary: "#458588",       // Blue
-        senary: "#d3869b",        // Purple/pink
+        primary: PRIMARY,
+        secondary: SECONDARY,
+        tertiary: TERTIARY,
+        quaternary: QUATERNARY,
+        quinary: QUINARY,
+        senary: SENARY,
     },
     logging: {
-        debug: "#928374",         // Gray
-        information: "#458588",   // Blue
-        warning: "#fabd2f",       // Yellow
-        error: "#fb4934",         // Red
-        critical: "#cc241d",      // Darker red
-        event: "#b8bb26",         // Green
-        span: "#83a598",          // Aqua
+        debug: DEBUG_GRAY,
+        information: QUINARY,
+        warning: WARNING_YELLOW,
+        error: PRIMARY,
+        critical: CRITICAL_RED,
+        event: TERTIARY,
+        span: QUATERNARY,
     },
     ui: {
-        "surface-1": "#282828",   // Gruvbox dark background
-        "surface-2": "#3c3836",   // Medium dark
-        "surface-3": "#1d2021",   // Darkest
-        text: "#ebdbb2",          // Gruvbox light foreground
-        headers: "#fbf1c7",       // Gruvbox light background color
-        highlight: "rgba(255, 255, 255, 0.05)",
-        border: "#504945",
+        "surface-1": BACKGROUND1,
+        "surface-2": BACKGROUND2,
+        "surface-3": BACKGROUND3,
+        text: TEXT,
+        headers: HEADERS,
+        highlight: HIGHLIGHT,
+        border: BORDER,
+        success: TERTIARY,
+        warning: WARNING_YELLOW,
+        info: QUINARY,
+        danger: PRIMARY,
+        muted: DEBUG_GRAY,
+    },
+    components: {
+        "start": COMPONENT_TEAL,
+        "database": COMPONENT_ORANGE,
+        "queue": COMPONENT_ORANGE,
+        "database-statement": COMPONENT_GRAY,
+        "workflow": COMPONENT_GREEN,
+        "actor": COMPONENT_GREEN,
+        "activity": COMPONENT_BLUE,
+        "queue-consumer": COMPONENT_BLUE,
+        "endpoint": COMPONENT_BLUE,
+        "service": COMPONENT_PURPLE,
+        "subcomponent": COMPONENT_DARK_GRAY,
     },
 };
 

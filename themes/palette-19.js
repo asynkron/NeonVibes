@@ -3,34 +3,77 @@
  * Elegant light theme with warm tones
  */
 
+// Color constants
+const PRIMARY = "#b4637a";
+const SECONDARY = "#ea9d34";
+const TERTIARY = "#56949f";
+const QUATERNARY = "#286983";
+const QUINARY = "#907aa9";
+const SENARY = "#d7827e";
+const DEBUG_GRAY = "#9893a5";
+const CRITICAL_RED = "#c05761";
+const BACKGROUND1 = "#faf4ed";
+const BACKGROUND2 = "#fffaf3";
+const BACKGROUND3 = "#f2e9e1";
+const TEXT = "#575279";
+const HEADERS = "#1f1d2e";
+const HIGHLIGHT = "rgba(0, 0, 0, 0.05)";
+const BORDER = "#dfdad9";
+
+// Component colors
+const COMPONENT_TEAL = "#1abc9c";
+const COMPONENT_ORANGE = "#f39c12";
+const COMPONENT_GRAY = "#95a5a6";
+const COMPONENT_GREEN = "#98c379";
+const COMPONENT_BLUE = "#3498db";
+const COMPONENT_PURPLE = "#c678dd";
+const COMPONENT_DARK_GRAY = "#34495e";
+
 export const palette19 = {
     id: "palette-19",
     label: "Palette 19 — Rose Pine Dawn",
     palette: {
-        primary: "#b4637a",       // Rose/Red
-        secondary: "#ea9d34",     // Gold
-        tertiary: "#56949f",      // Foam/Teal
-        quaternary: "#286983",    // Pine/Blue
-        quinary: "#907aa9",       // Iris/Purple
-        senary: "#d7827e",        // Rose Light
+        primary: PRIMARY,
+        secondary: SECONDARY,
+        tertiary: TERTIARY,
+        quaternary: QUATERNARY,
+        quinary: QUINARY,
+        senary: SENARY,
     },
     logging: {
-        debug: "#9893a5",         // Muted
-        information: "#286983",   // Pine/Blue
-        warning: "#ea9d34",       // Gold
-        error: "#b4637a",         // Rose/Red
-        critical: "#c05761",
-        event: "#56949f",         // Foam
-        span: "#907aa9",           // Iris
+        debug: DEBUG_GRAY,
+        information: QUATERNARY,
+        warning: SECONDARY,
+        error: PRIMARY,
+        critical: CRITICAL_RED,
+        event: TERTIARY,
+        span: QUINARY,
     },
     ui: {
-        "surface-1": "#faf4ed",   // Base
-        "surface-2": "#fffaf3",   // Surface
-        "surface-3": "#f2e9e1",   // Overlay
-        text: "#575279",          // Text
-        headers: "#1f1d2e",
-        highlight: "rgba(0, 0, 0, 0.05)",
-        border: "#dfdad9",
+        "surface-1": BACKGROUND1,
+        "surface-2": BACKGROUND2,
+        "surface-3": BACKGROUND3,
+        text: TEXT,
+        headers: HEADERS,
+        highlight: HIGHLIGHT,
+        border: BORDER,
+        success: TERTIARY,
+        warning: SECONDARY,
+        info: QUATERNARY,
+        danger: PRIMARY,
+        muted: DEBUG_GRAY,
+    },
+    components: {
+        "start": COMPONENT_TEAL,
+        "database": COMPONENT_ORANGE,
+        "queue": COMPONENT_ORANGE,
+        "database-statement": COMPONENT_GRAY,
+        "workflow": COMPONENT_GREEN,
+        "actor": COMPONENT_GREEN,
+        "activity": COMPONENT_BLUE,
+        "queue-consumer": COMPONENT_BLUE,
+        "endpoint": COMPONENT_BLUE,
+        "service": COMPONENT_PURPLE,
+        "subcomponent": COMPONENT_DARK_GRAY,
     },
 };
-

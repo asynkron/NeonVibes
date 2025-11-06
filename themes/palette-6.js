@@ -3,34 +3,79 @@
  * Popular Atom editor dark theme
  */
 
+// Color constants
+const PRIMARY = "#e06c75";
+const SECONDARY = "#d19a66";
+const TERTIARY = "#98c379";
+const QUATERNARY = "#56b6c2";
+const QUINARY = "#61afef";
+const SENARY = "#c678dd";
+const DEBUG_GRAY = "#5c6370";
+const WARNING_YELLOW = "#e5c07b";
+const CRITICAL_RED = "#be5046";
+const BACKGROUND1 = "#282c34";
+const BACKGROUND2 = "#21252b";
+const BACKGROUND3 = "#1e2127";
+const TEXT = "#abb2bf";
+const WHITE = "#ffffff";
+const HIGHLIGHT = "rgba(255, 255, 255, 0.05)";
+const BORDER = "#3e4451";
+
+// Component colors
+const COMPONENT_TEAL = "#1abc9c";
+const COMPONENT_ORANGE = "#f39c12";
+const COMPONENT_GRAY = "#95a5a6";
+const COMPONENT_GREEN = "#98c379";
+const COMPONENT_BLUE = "#3498db";
+const COMPONENT_PURPLE = "#c678dd";
+const COMPONENT_DARK_GRAY = "#34495e";
+
 export const palette6 = {
     id: "palette-6",
     label: "Palette 6 — Atom One Dark",
     palette: {
-        primary: "#e06c75",       // Red/pink
-        secondary: "#d19a66",     // Orange
-        tertiary: "#98c379",      // Green
-        quaternary: "#56b6c2",    // Cyan
-        quinary: "#61afef",       // Blue
-        senary: "#c678dd",         // Purple
+        primary: PRIMARY,
+        secondary: SECONDARY,
+        tertiary: TERTIARY,
+        quaternary: QUATERNARY,
+        quinary: QUINARY,
+        senary: SENARY,
     },
     logging: {
-        debug: "#5c6370",
-        information: "#61afef",   // Blue
-        warning: "#e5c07b",       // Yellow
-        error: "#e06c75",          // Red
-        critical: "#be5046",
-        event: "#98c379",         // Green
-        span: "#c678dd",          // Purple
+        debug: DEBUG_GRAY,
+        information: QUINARY,
+        warning: WARNING_YELLOW,
+        error: PRIMARY,
+        critical: CRITICAL_RED,
+        event: TERTIARY,
+        span: SENARY,
     },
     ui: {
-        "surface-1": "#282c34",   // Atom One Dark background
-        "surface-2": "#21252b",    // Slightly darker
-        "surface-3": "#1e2127",   // Darkest
-        text: "#abb2bf",          // Atom One Dark foreground
-        headers: "#ffffff",
-        highlight: "rgba(255, 255, 255, 0.05)",
-        border: "#3e4451",
+        "surface-1": BACKGROUND1,
+        "surface-2": BACKGROUND2,
+        "surface-3": BACKGROUND3,
+        text: TEXT,
+        headers: WHITE,
+        highlight: HIGHLIGHT,
+        border: BORDER,
+        success: TERTIARY,
+        warning: WARNING_YELLOW,
+        info: QUINARY,
+        danger: PRIMARY,
+        muted: DEBUG_GRAY,
+    },
+    components: {
+        "start": COMPONENT_TEAL,
+        "database": COMPONENT_ORANGE,
+        "queue": COMPONENT_ORANGE,
+        "database-statement": COMPONENT_GRAY,
+        "workflow": COMPONENT_GREEN,
+        "actor": COMPONENT_GREEN,
+        "activity": COMPONENT_BLUE,
+        "queue-consumer": COMPONENT_BLUE,
+        "endpoint": COMPONENT_BLUE,
+        "service": COMPONENT_PURPLE,
+        "subcomponent": COMPONENT_DARK_GRAY,
     },
 };
 
