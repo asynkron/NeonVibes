@@ -707,16 +707,19 @@ function renderSpans(lines, trace) {
     const spanId = escapeMermaidId(span.spanId);
     const escapedComponentName = escapeMermaid(component.name);
 
-    // Render component for this span using spanId as the node ID
-    // Component3Generator uses spanId as the component identifier
-    lines.push(`    ${spanId}["${escapedComponentName}"]`);
-
-    // If span has an operation, render it as a subcomponent
+    // If span has an operation, render as subgraph containing the operation
+    // (similar to Component1Generator rendering components with subcomponents as subgraphs)
     if (description.operation && description.operation !== "") {
       const operationId = escapeMermaidId(span.spanId + "op");
       const escapedOperation = escapeMermaid(description.operation);
-      lines.push(`    ${operationId}["${escapedOperation}"]`);
-      lines.push(`    ${operationId} -.-> ${spanId}`);
+      
+      // Render component as subgraph containing the operation
+      lines.push(`    subgraph ${spanId}["${escapedComponentName}"]`);
+      lines.push(`        ${operationId}["${escapedOperation}"]`);
+      lines.push(`    end`);
+    } else {
+      // No operation, render as simple component
+      lines.push(`    ${spanId}["${escapedComponentName}"]`);
     }
   });
 }
