@@ -369,17 +369,17 @@ export function applyPalette(palette) {
                 // Declare variables in outer scope
                 let positive3, positive2, positive1, base, negative1, negative2, negative3;
 
-                // For surface, use normal lightness adjustment for positive variations
+                // For surface, use normal lightness adjustment with smaller steps
                 // For all other UI colors, mix towards surface color for positive variations
                 if (key === "surface") {
-                    // Generate variations using normal lightness adjustment
-                    positive3 = generateColorVariation(color, theme, 3, 2.5);
-                    positive2 = generateColorVariation(color, theme, 2, 2.5);
-                    positive1 = generateColorVariation(color, theme, 1, 2.5);
+                    // Generate variations using normal lightness adjustment with smaller step size (1.25 instead of 2.5)
+                    positive3 = generateColorVariation(color, theme, 3, 1.25);
+                    positive2 = generateColorVariation(color, theme, 2, 1.25);
+                    positive1 = generateColorVariation(color, theme, 1, 1.25);
                     base = color;
-                    negative1 = generateColorVariation(color, theme, -1, 2.5);
-                    negative2 = generateColorVariation(color, theme, -2, 2.5);
-                    negative3 = generateColorVariation(color, theme, -3, 2.5);
+                    negative1 = generateColorVariation(color, theme, -1, 1.25);
+                    negative2 = generateColorVariation(color, theme, -2, 1.25);
+                    negative3 = generateColorVariation(color, theme, -3, 1.25);
                 } else {
                     // Generate positive variations by mixing towards surface color
                     positive3 = mixColorTowardsSurface(color, surfaceColor, 3, 2.5);
