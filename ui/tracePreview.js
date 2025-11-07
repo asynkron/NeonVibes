@@ -103,7 +103,7 @@ function getServiceColorCssVar(colorKey, trace) {
   const serviceIndex = trace.serviceNameMapping?.get(colorKey) ?? 0;
   const colorIndex = serviceIndex % paletteColorNames.length;
   const colorName = paletteColorNames[colorIndex];
-  return `--${colorName}-positive-2`;
+  return `--${colorName}-positive-3`;
 }
 
 function createSpanRect(node, trace, index, spanHeight) {
@@ -133,7 +133,7 @@ function createSpanRect(node, trace, index, spanHeight) {
   rect.setAttribute("height", `${spanHeight}`);
   rect.setAttribute("rx", "0");
   rect.style.setProperty("--span-color", `var(${cssVar})`);
-  rect.style.fill = `color-mix(in srgb, var(${cssVar}) 60%, transparent)`;
+  rect.style.fill = `var(${cssVar})`;
   return rect;
 }
 
@@ -460,7 +460,7 @@ export function renderTracePreview(trace, onSelectionChange = null, initialSelec
         const colorKey = getColorKeyFromNode(node);
         const cssVar = getServiceColorCssVar(colorKey, trace);
         rect.style.setProperty("--span-color", `var(${cssVar})`);
-        rect.style.fill = `color-mix(in srgb, var(${cssVar}) 60%, transparent)`;
+        rect.style.fill = `var(${cssVar})`;
         if (index < 3) {
           console.log(`[Trace Preview Update] Span ${index}: colorKey="${colorKey}", groupName="${node.description?.groupName}", serviceName="${node.span.resource?.serviceName}", cssVar="${cssVar}"`);
         }

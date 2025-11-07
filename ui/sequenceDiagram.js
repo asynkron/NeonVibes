@@ -123,8 +123,8 @@ function getComponentColorCssVar(component) {
   const kind = (component.kind || ComponentKind.SERVICE).toLowerCase();
   const paletteKey = componentKindMap[kind] || "service";
 
-  // Return CSS variable name with positive-2 variation (e.g., "--component-service-positive-2")
-  return `--component-${paletteKey}-positive-2`;
+  // Return CSS variable name with positive-3 variation (e.g., "--component-service-positive-3")
+  return `--component-${paletteKey}-positive-3`;
 }
 
 /**
@@ -310,16 +310,16 @@ function applyParticipantColors(host, trace) {
     }
   });
 
-  // Apply special color to "Start" participant using CSS variable with positive-2 variation
+  // Apply special color to "Start" participant using CSS variable with positive-3 variation
   const startRects = mermaidSvg.querySelectorAll(`rect[name="start"]`);
   if (startRects.length > 0) {
     startRects.forEach((rect) => {
-      // Use CSS variable with positive-2 variation
-      rect.style.fill = "var(--ui-success-positive-2)";
-      rect.style.stroke = "var(--ui-success-positive-2)";
+      // Use CSS variable with positive-3 variation
+      rect.style.fill = "var(--ui-success-positive-3)";
+      rect.style.stroke = "var(--ui-success-positive-3)";
       rect.style.strokeWidth = "2px";
     });
-    console.log(`[applyParticipantColors] Applied CSS variable --ui-success-positive-2 to ${startRects.length} rect(s) with name="start"`);
+    console.log(`[applyParticipantColors] Applied CSS variable --ui-success-positive-3 to ${startRects.length} rect(s) with name="start"`);
   } else {
     console.warn(`[applyParticipantColors] No rects found with name="start"`);
   }

@@ -221,8 +221,8 @@ function generateComponentClassDefs(lines) {
   const rootStyles = getComputedStyle(document.documentElement);
 
   Object.entries(componentKindMap).forEach(([kind, paletteKey]) => {
-    // Get fill color from CSS variable with positive-2 variation
-    const fillCssVar = `--component-${paletteKey}-positive-2`;
+    // Get fill color from CSS variable with positive-3 variation
+    const fillCssVar = `--component-${paletteKey}-positive-3`;
     let fillColor = rootStyles.getPropertyValue(fillCssVar).trim();
 
     // Fallback to base CSS variable if positive-2 not set
@@ -670,11 +670,11 @@ function applyStylingWithSubcomponents(lines, components, groups, calls, trace) 
         databasestatement: "database-statement",
       };
       const paletteKey = componentKindMap[kind] || "service";
-      // Read CSS variable value with positive-2 variation (Mermaid needs actual color value)
-      const cssVar = `--component-${paletteKey}-positive-2`;
+      // Read CSS variable value with positive-3 variation (Mermaid needs actual color value)
+      const cssVar = `--component-${paletteKey}-positive-3`;
       let fillColor = rootStyles.getPropertyValue(cssVar).trim();
 
-      // Fallback to base CSS variable if positive-2 not set
+      // Fallback to base CSS variable if positive-3 not set
       if (!fillColor) {
         const baseCssVar = `--component-${paletteKey}`;
         fillColor = rootStyles.getPropertyValue(baseCssVar).trim();

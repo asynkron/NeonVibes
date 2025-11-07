@@ -1817,7 +1817,7 @@ function getServiceColorCssVar(serviceName, trace) {
   const serviceIndex = trace.serviceNameMapping?.get(serviceName) ?? 0;
   const colorIndex = serviceIndex % paletteColorNames.length;
   const colorName = paletteColorNames[colorIndex];
-  return `--${colorName}-positive-2`;
+  return `--${colorName}-positive-3`;
 }
 
 /**
@@ -1837,7 +1837,7 @@ function updateServiceColors(host, trace) {
     const indicator = serviceButton.querySelector(".trace-span__service-indicator");
     if (indicator) {
       indicator.style.setProperty("--service-color", `var(${cssVar})`);
-      indicator.style.backgroundColor = `color-mix(in srgb, var(${cssVar}) 60%, transparent)`;
+      indicator.style.backgroundColor = `var(${cssVar})`;
       updateCount++;
       if (updateCount <= 3) {
         console.log(`[Trace Viewer Update] Service indicator: service="${serviceName}", index=${serviceIndex}, cssVar="${cssVar}"`);
@@ -1868,7 +1868,7 @@ function updateSpanBars(host, trace) {
     const serviceIndex = trace.serviceNameMapping?.get(serviceName) ?? 0;
     const cssVar = getServiceColorCssVar(serviceName, trace);
     bar.style.setProperty("--service-color", `var(${cssVar})`);
-    bar.style.setProperty("--service-shadow", `0 0 18px color-mix(in srgb, var(${cssVar}) 25%, transparent)`);
+    bar.style.setProperty("--service-shadow", `0 0 18px var(${cssVar})`);
     barUpdateCount++;
     if (barUpdateCount <= 3) {
       console.log(`[Trace Viewer Update] Span bar: service="${serviceName}", index=${serviceIndex}, cssVar="${cssVar}"`);

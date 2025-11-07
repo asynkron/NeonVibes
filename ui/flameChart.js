@@ -97,7 +97,7 @@ function getServiceColorCssVar(colorKey, trace) {
   const serviceIndex = trace.serviceNameMapping?.get(colorKey) ?? 0;
   const colorIndex = serviceIndex % paletteColorNames.length;
   const colorName = paletteColorNames[colorIndex];
-  return `--${colorName}-positive-2`;
+  return `--${colorName}-positive-3`;
 }
 
 /**
@@ -294,7 +294,7 @@ function applyFlameChartColors(host, trace) {
     const colorKey = getColorKeyFromNode(node);
     const cssVar = getServiceColorCssVar(colorKey, trace);
     bar.style.setProperty('--span-color', `var(${cssVar})`);
-    bar.style.backgroundColor = `color-mix(in srgb, var(${cssVar}) 60%, transparent)`;
+    bar.style.backgroundColor = `var(${cssVar})`;
   });
 
   spanBgs.forEach((bg) => {
@@ -318,7 +318,7 @@ function applyFlameChartColors(host, trace) {
     const colorKey = getColorKeyFromNode(node);
     const cssVar = getServiceColorCssVar(colorKey, trace);
     bg.style.setProperty('--span-color', `var(${cssVar})`);
-    bg.style.backgroundColor = `color-mix(in srgb, var(${cssVar}) 65%, transparent)`;
+    bg.style.backgroundColor = `var(${cssVar})`;
   });
 }
 
