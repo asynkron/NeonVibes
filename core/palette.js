@@ -219,6 +219,24 @@ export function applyPalette(palette) {
         });
     }
 
+    // Set CSS variables for component colors
+    if (palette.components) {
+        Object.entries(palette.components).forEach(([key, color]) => {
+            const cssVar = `--component-${key}`;
+            root.style.setProperty(cssVar, color);
+            
+            if (color && color.startsWith("#")) {
+                try {
+                    const { r, g, b } = hexToRgb(color);
+                    const rgbVar = `--component-${key}-rgb`;
+                    root.style.setProperty(rgbVar, `${r} ${g} ${b}`);
+                } catch (e) {
+                    // Skip rgb variant if color conversion fails
+                }
+            }
+        });
+    }
+
     if (rerenderCallback) {
         rerenderCallback();
     }

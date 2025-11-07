@@ -103,16 +103,11 @@ function getCurrentPalette() {
 }
 
 /**
- * Gets component color from palette based on component kind
+ * Gets component color CSS variable name based on component kind
  * @param {Component} component - Component to get color for
- * @returns {string|null} Color hex string or null
+ * @returns {string|null} CSS variable name (e.g., "--component-service") or null
  */
-function getComponentColorFromPalette(component) {
-  const palette = getCurrentPalette();
-  if (!palette || !palette.components) {
-    return null;
-  }
-
+function getComponentColorCssVar(component) {
   // Map component kinds to palette component keys (same as component diagrams)
   const componentKindMap = {
     start: "start",
@@ -130,7 +125,9 @@ function getComponentColorFromPalette(component) {
 
   const kind = (component.kind || ComponentKind.SERVICE).toLowerCase();
   const paletteKey = componentKindMap[kind] || "service";
-  return palette.components[paletteKey] || null;
+  
+  // Return CSS variable name (e.g., "--component-service")
+  return `--component-${paletteKey}`;
 }
 
 /**
@@ -307,70 +304,56 @@ function applyParticipantColors(host, trace) {
   // Find all participant header rectangles by their name attribute
   // Example: <rect class="actor actor-top" name="edge_gateway_Internal" ...>
   trace.components.forEach((component) => {
-    // Get component color from palette based on component kind
-    const colorHex = getComponentColorFromPalette(component);
+    // Get component color CSS variable name
+    const colorCssVar = getComponentColorCssVar(component);
 
-    if (!colorHex) {
+    if (!colorCssVar) {
       // Fallback to computed service color if palette doesn't have component color
       const colorKey = getColorKeyFromComponent(component, trace);
       if (colorKey) {
         const escapedId = escapeMermaidId(component.id);
         const color = computeServiceColor(colorKey, trace);
-        const rgb = hexToRgb(color);
-        if (rgb) {
-          const rects = mermaidSvg.querySelectorAll(`rect[name="${escapedId}"]`);
-          if (rects.length > 0) {
-            rects.forEach((rect) => {
-              rect.style.fill = color;
-              rect.style.stroke = color;
-              rect.style.strokeWidth = "2px";
-            });
-          }
+        const rects = mermaidSvg.querySelectorAll(`rect[name="${escapedId}"]`);
+        if (rects.length > 0) {
+          rects.forEach((rect) => {
+            rect.style.fill = color;
+            rect.style.stroke = color;
+            rect.style.strokeWidth = "2px";
+          });
         }
       }
       return;
     }
 
     const escapedId = escapeMermaidId(component.id);
-    const rgb = hexToRgb(colorHex);
+    const rects = mermaidSvg.querySelectorAll(`rect[name="${escapedId}"]`);
 
-    if (rgb) {
-      // Use component color directly without mixing (same as component diagrams)
-      const rects = mermaidSvg.querySelectorAll(`rect[name="${escapedId}"]`);
+    if (rects.length > 0) {
+      rects.forEach((rect) => {
+        // Use CSS variable directly
+        rect.style.fill = `var(${colorCssVar})`;
+        rect.style.stroke = `var(${colorCssVar})`;
+        rect.style.strokeWidth = "2px";
+      });
 
-      if (rects.length > 0) {
-        rects.forEach((rect) => {
-          // Use style property instead of setAttribute to override CSS
-          // Use color directly without mixing
-          rect.style.fill = colorHex;
-          rect.style.stroke = colorHex;
-          rect.style.strokeWidth = "2px";
-        });
-
-        console.log(`[applyParticipantColors] Applied palette color to ${rects.length} rect(s) with name="${escapedId}" (kind: ${component.kind}, color: ${colorHex})`);
-      } else {
-        console.warn(`[applyParticipantColors] No rects found with name="${escapedId}"`);
-      }
+      console.log(`[applyParticipantColors] Applied CSS variable ${colorCssVar} to ${rects.length} rect(s) with name="${escapedId}" (kind: ${component.kind})`);
+    } else {
+      console.warn(`[applyParticipantColors] No rects found with name="${escapedId}"`);
     }
   });
 
-  // Apply special color to "Start" participant using palette.ui.success
-  const palette = getCurrentPalette();
-  if (palette && palette.ui && palette.ui.success) {
-    const startColor = palette.ui.success;
-    const startRects = mermaidSvg.querySelectorAll(`rect[name="start"]`);
-    if (startRects.length > 0) {
-      startRects.forEach((rect) => {
-        rect.style.fill = startColor;
-        rect.style.stroke = startColor;
-        rect.style.strokeWidth = "2px";
-      });
-      console.log(`[applyParticipantColors] Applied success color to ${startRects.length} rect(s) with name="start" (color: ${startColor})`);
-    } else {
-      console.warn(`[applyParticipantColors] No rects found with name="start"`);
-    }
+  // Apply special color to "Start" participant using CSS variable
+  const startRects = mermaidSvg.querySelectorAll(`rect[name="start"]`);
+  if (startRects.length > 0) {
+    startRects.forEach((rect) => {
+      // Use CSS variable directly
+      rect.style.fill = "var(--ui-success)";
+      rect.style.stroke = "var(--ui-success)";
+      rect.style.strokeWidth = "2px";
+    });
+    console.log(`[applyParticipantColors] Applied CSS variable --ui-success to ${startRects.length} rect(s) with name="start"`);
   } else {
-    console.warn(`[applyParticipantColors] Could not get palette.ui.success color`);
+    console.warn(`[applyParticipantColors] No rects found with name="start"`);
   }
 }
 
