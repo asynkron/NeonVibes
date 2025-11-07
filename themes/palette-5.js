@@ -27,7 +27,7 @@ const COMPONENT_GRAY = "#95a5a6";
 const COMPONENT_GREEN = "#98c379";
 const COMPONENT_BLUE = "#3498db";
 const COMPONENT_PURPLE = "#c678dd";
-const COMPONENT_DARK_GRAY = "#34495e";
+const COMPONENT_DARK_GRAY = "#00000080";
 
 export const palette5 = {
     id: "palette-5",
