@@ -5,9 +5,6 @@
  */
 
 import { createComponentKey, ComponentKind } from "./metaModel.js";
-import { getColorKeyFromGroupOrComponent, getColorKeyFromComponent } from "../core/identity.js";
-import { computeServiceColor, computeServiceColorRgb, mixWithSurface } from "../core/colorService.js";
-import { hexToRgb } from "../core/colors.js";
 import { escapeMermaid, escapeMermaidId } from "../core/strings.js";
 import { colorPalettes } from "../core/config.js";
 import { paletteState } from "../core/palette.js";
@@ -295,24 +292,6 @@ function applyParticipantColors(host, trace) {
   trace.components.forEach((component) => {
     // Get component color CSS variable name
     const colorCssVar = getComponentColorCssVar(component);
-
-    if (!colorCssVar) {
-      // Fallback to computed service color if palette doesn't have component color
-      const colorKey = getColorKeyFromComponent(component, trace);
-      if (colorKey) {
-        const escapedId = escapeMermaidId(component.id);
-        const color = computeServiceColor(colorKey, trace);
-        const rects = mermaidSvg.querySelectorAll(`rect[name="${escapedId}"]`);
-        if (rects.length > 0) {
-          rects.forEach((rect) => {
-            rect.style.fill = color;
-            rect.style.stroke = color;
-            rect.style.strokeWidth = "2px";
-          });
-        }
-      }
-      return;
-    }
 
     const escapedId = escapeMermaidId(component.id);
     const rects = mermaidSvg.querySelectorAll(`rect[name="${escapedId}"]`);

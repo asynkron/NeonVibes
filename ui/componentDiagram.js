@@ -11,7 +11,6 @@
 import { createComponentKey, ComponentKind } from "./metaModel.js";
 import { escapeMermaid, escapeMermaidId } from "../core/strings.js";
 import { buildTraceModel } from "./trace.js";
-import { hexToRgb } from "../core/colors.js";
 import { colorPalettes } from "../core/config.js";
 import { paletteState } from "../core/palette.js";
 
@@ -202,16 +201,6 @@ function generateComponentClassDefs(lines) {
     return;
   }
 
-  // Helper function to darken a color for stroke
-  const darkenColor = (hex, factor = 0.8) => {
-    const rgb = hexToRgb(hex);
-    if (!rgb) return hex;
-    const r = Math.floor(rgb.r * factor).toString(16).padStart(2, '0');
-    const g = Math.floor(rgb.g * factor).toString(16).padStart(2, '0');
-    const b = Math.floor(rgb.b * factor).toString(16).padStart(2, '0');
-    return `#${r}${g}${b}`;
-  };
-
   // Map component kinds to palette component keys
   const componentKindMap = {
     start: "start",
@@ -232,28 +221,40 @@ function generateComponentClassDefs(lines) {
   const rootStyles = getComputedStyle(document.documentElement);
 
   Object.entries(componentKindMap).forEach(([kind, paletteKey]) => {
-    // Get color from CSS variable with positive-2 variation
-    const cssVar = `--component-${paletteKey}-positive-2`;
-    let color = rootStyles.getPropertyValue(cssVar).trim();
+    // Get fill color from CSS variable with positive-2 variation
+    const fillCssVar = `--component-${paletteKey}-positive-2`;
+    let fillColor = rootStyles.getPropertyValue(fillCssVar).trim();
 
     // Fallback to base CSS variable if positive-2 not set
-    if (!color) {
+    if (!fillColor) {
       const baseCssVar = `--component-${paletteKey}`;
-      color = rootStyles.getPropertyValue(baseCssVar).trim();
+      fillColor = rootStyles.getPropertyValue(baseCssVar).trim();
     }
 
     // Fallback to palette if CSS variable not set
-    if (!color) {
-      color = palette.components[paletteKey];
+    if (!fillColor) {
+      fillColor = palette.components[paletteKey];
     }
 
-    if (color) {
-      const strokeColor = kind === "subcomponent"
-        ? darkenColor(color, 0.7)
-        : darkenColor(color, 0.8);
+    // Get stroke color from CSS variable with negative-1 variation (darker for light mode, lighter for dark mode)
+    const strokeCssVar = `--component-${paletteKey}-negative-1`;
+    let strokeColor = rootStyles.getPropertyValue(strokeCssVar).trim();
+
+    // Fallback to base CSS variable if negative-1 not set
+    if (!strokeColor) {
+      const baseCssVar = `--component-${paletteKey}`;
+      strokeColor = rootStyles.getPropertyValue(baseCssVar).trim();
+    }
+
+    // Fallback to palette if CSS variable not set
+    if (!strokeColor) {
+      strokeColor = palette.components[paletteKey];
+    }
+
+    if (fillColor && strokeColor) {
       const strokeWidth = kind === "subcomponent" ? "1px" : "2px";
       const strokeDasharray = kind === "subcomponent" ? ",stroke-dasharray: 3 3" : "";
-      lines.push(`    classDef ${kind} fill:${color},stroke:${strokeColor},stroke-width:${strokeWidth}${strokeDasharray}`);
+      lines.push(`    classDef ${kind} fill:${fillColor},stroke:${strokeColor},stroke-width:${strokeWidth}${strokeDasharray}`);
     } else {
       // Fallback if palette doesn't have this component type
       console.warn(`[generateComponentClassDefs] Palette ${palette.id} missing component color for "${paletteKey}"`);
