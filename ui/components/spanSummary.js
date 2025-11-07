@@ -41,7 +41,7 @@ export function createSpanLeftSection(trace, node) {
   
   const indicatorStyle = {
     "--service-color": `var(${cssVar})`,
-    backgroundColor: `color-mix(in srgb, var(${cssVar}) 60%, transparent)`
+    backgroundColor: `var(${cssVar})`
   };
 
   const service = h('button', {
