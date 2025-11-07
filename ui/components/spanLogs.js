@@ -16,7 +16,7 @@ import { onClickStop } from "../../core/events.js";
 export function createLogRow(logRow, expandedLogIds) {
   const severityGroup = resolveSeverityGroup(logRow);
   const isOpen = expandedLogIds.has(logRow.id);
-  
+
   const logElement = h('div', {
     className: `log-row log-row--severity-${severityGroup}${isOpen ? ' log-row--open' : ''}`,
     dataset: { rowId: logRow.id }
@@ -76,18 +76,18 @@ export function createLogToggleHandler(logRow, expandedLogIds, logElement, metaS
     if (wasOpen) {
       expandedLogIds.delete(logRow.id);
       logElement.classList.remove('log-row--open');
-      
+
       // Remove metaSection from DOM when collapsing
       if (metaSectionRef.value && metaSectionRef.value.parentNode) {
         metaSectionRef.value.parentNode.removeChild(metaSectionRef.value);
         metaSectionRef.value = null;
       }
-      
+
       setAttrs(expander, { 'aria-expanded': 'false' });
     } else {
       expandedLogIds.add(logRow.id);
       logElement.classList.add('log-row--open');
-      
+
       // Create metaSection lazily on expand if it doesn't exist
       if (!metaSectionRef.value || !metaSectionRef.value.parentNode) {
         const logRowData = logElement._logRow || logRow;
@@ -96,7 +96,7 @@ export function createLogToggleHandler(logRow, expandedLogIds, logElement, metaS
       } else {
         metaSectionRef.value.style.display = '';
       }
-      
+
       setAttrs(expander, { 'aria-expanded': 'true' });
     }
   };
@@ -130,7 +130,7 @@ export function renderSpanLogs(node) {
 
   sortedLogs.forEach((logRow) => {
     const { element: logElement, expander, summary, metaSection } = createLogRow(logRow, expandedLogIds);
-    
+
     // Create a mutable reference to metaSection so the handler can update it
     const metaSectionRef = { value: metaSection };
     const toggleHandler = createLogToggleHandler(logRow, expandedLogIds, logElement, metaSectionRef, expander);
