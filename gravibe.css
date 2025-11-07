@@ -4,19 +4,15 @@
   color-scheme: dark;
   /* UI colors are set dynamically by the active palette via JavaScript */
   /* Fallback values for when palette hasn't loaded yet */
-  --ui-surface-1: #242933;
-  --ui-surface-2: #1e2129;
-  --ui-surface-3: #12161e;
+  --ui-surface: #1e2129;
+  --ui-surface-positive-1: #242933;
+  --ui-surface-negative-1: #12161e;
   --ui-text: #d7dce3;
   --ui-headers: #ffffff;
   --ui-highlight: rgba(255, 255, 255, 0.05);
   --ui-border: #3a404c;
 
-  /* Map legacy variables to UI colors for backward compatibility */
-  --surface-0: var(--ui-surface-3);
-  --surface-1: var(--ui-surface-1);
-  --surface-2: var(--ui-surface-2);
-  --surface-3: var(--ui-surface-3);
+  /* Legacy surface-border for backward compatibility */
   --surface-border: var(--ui-border);
   --surface-border-subtle: rgba(88, 96, 109, 0.6);
   --text-strong: var(--ui-text);
@@ -74,7 +70,7 @@ body {
   margin: 0;
   font-family: var(--font-base);
   color: var(--ui-text);
-  background: var(--ui-surface-3);
+  background: var(--ui-surface);
   display: flex;
   flex-direction: column;
   gap: 2rem;
@@ -93,7 +89,7 @@ body {
   margin: 0 auto;
   max-width: 64rem;
   width: min(100%, 64rem);
-  background: var(--ui-surface-1);
+  background: var(--ui-surface-negative-1);
   border: 1px solid rgba(148, 163, 184, 0.24);
   border-radius: 8px;
   padding: clamp(1.25rem, 2vw, 1.75rem);
@@ -125,7 +121,7 @@ body {
   gap: 0.5rem;
   padding: 0.75rem;
   border-radius: 8px;
-  background: var(--ui-surface-2);
+  background: var(--ui-surface);
   border: 1px solid rgba(99, 114, 135, 0.2);
 }
 
@@ -144,7 +140,7 @@ body {
 .effect-select {
   border-radius: 8px;
   border: 1px solid rgb(var(--accent-primary-rgb) / 0.4);
-  background: var(--ui-surface-2);
+  background: var(--ui-surface);
   color: var(--ui-text);
   padding: 0.5rem 0.75rem;
   font: inherit;
@@ -156,7 +152,7 @@ body {
   outline: none;
   border-color: rgb(var(--accent-secondary-rgb) / 0.7);
   box-shadow: 0 0 0 3px rgb(var(--accent-secondary-rgb) / 0.25);
-  background: var(--ui-surface-1);
+  background: var(--ui-surface-positive-1);
 }
 
 .effect-control output {
@@ -217,13 +213,13 @@ body {
 }
 
 .component-card {
-    background: var(--ui-surface-1);
-    border-radius: 8px;
-    padding: 1.5rem;
-    display: flex;
-    flex-direction: column;
-    gap: 1.25rem;
-    border: 1px solid var(--ui-border);
+  background: var(--ui-surface-negative-1);
+  border-radius: 8px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  border: 1px solid var(--ui-border);
 }
 
 .component-card header {
@@ -258,7 +254,7 @@ body {
 .palette-select {
   border-radius: 8px;
   border: 1px solid rgb(var(--accent-primary-rgb) / 0.45);
-  background: var(--ui-surface-2);
+  background: var(--ui-surface);
   color: var(--ui-text);
   padding: 0.45rem 0.9rem;
   font: inherit;
@@ -271,7 +267,7 @@ body {
   outline: none;
   border-color: rgb(var(--accent-secondary-rgb) / 0.7);
   box-shadow: 0 0 0 3px rgb(var(--accent-secondary-rgb) / 0.25);
-  background: var(--surface-1);
+  background: var(--ui-surface-positive-1);
 }
 
 .effect-control--palette {
@@ -289,14 +285,14 @@ body {
   border-style: solid;
   border-color: var(--ui-border);
   border-width: calc(1px * var(--chart-outline-scale));
-  background: var(--surface-2);
+  background: var(--ui-surface);
   padding: clamp(0.8rem, 2vw, 1.1rem);
   overflow: hidden;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
 }
 
 .chart-shell[data-background-effect="solid"] {
-  background: var(--surface-2);
+  background: var(--ui-surface);
 }
 
 .chart-shell[data-background-effect="linear"] {
@@ -308,7 +304,7 @@ body {
     radial-gradient(circle at 18% 12%, rgb(0 107 153 / 18%), transparent 58%),
     radial-gradient(circle at 82% 16%, rgb(28 0 31 / 16%), transparent 55%),
     radial-gradient(circle at 50% 80%, rgb(221 0 255 / 12%), transparent 60%),
-    var(--surface-2);
+    var(--ui-surface);
 }
 
 .chart-shell::after {
@@ -362,7 +358,7 @@ body {
   height: 0.85rem;
   border-radius: 8px;
   overflow: hidden;
-  background: var(--surface-2);
+  background: var(--ui-surface);
   border: 1px solid var(--ui-border);
 }
 
@@ -407,7 +403,7 @@ body {
 
 .log-console-section {
   width: 100%;
-  background: var(--ui-surface-1);
+  background: var(--ui-surface-negative-1);
   border-radius: 12px;
   border: 1px solid var(--ui-border);
   box-shadow: var(--shadow-soft);
@@ -420,13 +416,13 @@ body {
 .sequence-diagram-section,
 .flame-chart-section,
 .component-diagram-section {
-    width: 100%;
-    background: var(--ui-surface-1);
-    border-radius: 8px;
-    border: 1px solid var(--ui-border);
-    padding: clamp(1.5rem, 4vw, 2.25rem);
-    display: grid;
-    gap: clamp(1.25rem, 3vw, 2rem);
+  width: 100%;
+  background: var(--ui-surface-negative-1);
+  border-radius: 8px;
+  border: 1px solid var(--ui-border);
+  padding: clamp(1.5rem, 4vw, 2.25rem);
+  display: grid;
+  gap: clamp(1.25rem, 3vw, 2rem);
 }
 
 .trace-header,
@@ -443,7 +439,7 @@ body {
   margin-bottom: 1.5rem;
   border-radius: 6px;
   overflow: hidden;
-  background: var(--ui-surface-2);
+  background: var(--ui-surface);
   cursor: crosshair;
   position: relative;
 }
@@ -497,7 +493,7 @@ body {
 .component-diagram-generator-select {
   border-radius: 8px;
   border: 1px solid rgba(148, 163, 184, 0.24);
-  background: var(--ui-surface-2);
+  background: var(--ui-surface);
   color: var(--ui-text);
   padding: 0.5rem 0.75rem;
   font-size: var(--font-size-sm);
@@ -801,7 +797,7 @@ body {
   font-size: var(--font-size-xs);
   color: var(--text-subtle);
   white-space: nowrap;
-  background: var(--ui-surface-2);
+  background: var(--ui-surface);
   padding: 0.25rem 0.4rem;
   border-radius: 3px;
   pointer-events: auto;
@@ -829,7 +825,7 @@ body {
   content: "";
   position: absolute;
   inset: 0;
-  background: color-mix(in srgb, var(--ui-surface-2) 50%, transparent);
+  background: color-mix(in srgb, var(--ui-surface) 50%, transparent);
   z-index: 0;
 }
 
@@ -1008,7 +1004,7 @@ body {
   /* Ensure it takes full width */
   max-width: 100%;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), 0 2px 8px rgba(0, 0, 0, 0.4);
-  background: var(--ui-surface-1);
+  background: var(--ui-surface-positive-1);
   padding: 0.75rem 1rem;
   border: 1px solid var(--ui-border);
   box-sizing: border-box;
@@ -1030,7 +1026,7 @@ body {
   opacity: 1;
   padding-top: 16px;
   padding-bottom: 16px;
-  background-color: var(--surface-1);
+  background-color: var(--ui-surface-positive-1);
 }
 
 .trace-span__name {
@@ -1145,7 +1141,7 @@ body {
 }
 
 .log-row {
-  background: var(--ui-surface-1);
+  background: var(--ui-surface-positive-1);
   transition: box-shadow 0.2s ease, transform 0.2s ease, background-color 0.15s ease;
 }
 
@@ -1340,7 +1336,7 @@ body {
 }
 
 .log-attributes-table thead {
-  background: var(--ui-surface-2);
+  background: var(--ui-surface);
 }
 
 .log-attributes-table th {
@@ -1464,7 +1460,7 @@ body {
 }
 
 .log-card {
-  background: var(--ui-surface-1);
+  background: var(--ui-surface-positive-1);
   border-radius: 8px;
   padding: 0.5rem 0.75rem;
   display: grid;
@@ -1589,7 +1585,7 @@ body {
 .flame-chart-container {
   width: 100%;
   min-height: 200px;
-  background: var(--ui-surface-2);
+  background: var(--ui-surface);
   border-radius: 6px;
   padding: 1rem;
   overflow-x: auto;
@@ -1599,7 +1595,7 @@ body {
 .component-diagram-container {
   width: 100%;
   min-height: 400px;
-  background: var(--ui-surface-2);
+  background: var(--ui-surface);
   border-radius: 6px;
   padding: 1rem;
   overflow: auto;
@@ -1612,7 +1608,6 @@ body {
 }
 
 .flame-chart {
-  background-color: var(--diagram-surface, var(--surface-1));
   padding: 0.5rem;
   width: 100%;
   overflow-x: auto;

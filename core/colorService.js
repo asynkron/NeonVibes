@@ -47,11 +47,11 @@ let _surface1Cache = null;
 let _surface1CacheFrame = -1;
 
 /**
- * Gets the surface-1 color from CSS variable, with caching per animation frame.
- * @param {string} surfaceVar - CSS variable name (default: '--surface-1')
+ * Gets the surface color from CSS variable, with caching per animation frame.
+ * @param {string} surfaceVar - CSS variable name (default: '--ui-surface')
  * @returns {{r: number, g: number, b: number} | null} RGB values or null if invalid
  */
-function getSurfaceColor(surfaceVar = '--surface-1') {
+function getSurfaceColor(surfaceVar = '--ui-surface') {
   // Cache per animation frame to avoid repeated getComputedStyle calls
   const currentFrame = performance.now();
   if (_surface1Cache === null || currentFrame - _surface1CacheFrame > 16) { // ~60fps
@@ -71,13 +71,13 @@ function getSurfaceColor(surfaceVar = '--surface-1') {
 }
 
 /**
- * Mixes a color with a CSS variable (typically --surface-1).
+ * Mixes a color with a CSS variable (typically --ui-surface).
  * @param {string} colorHex - Hex color string to mix
- * @param {string} surfaceVar - CSS variable name (default: '--surface-1')
+ * @param {string} surfaceVar - CSS variable name (default: '--ui-surface')
  * @param {number} ratio - Mix ratio (0-1), where 0 = all colorHex, 1 = all surface (default: 0.75)
  * @returns {{r: number, g: number, b: number} | null} Mixed RGB values or null if invalid
  */
-export function mixWithSurface(colorHex, surfaceVar = '--surface-1', ratio = 0.75) {
+export function mixWithSurface(colorHex, surfaceVar = '--ui-surface', ratio = 0.75) {
   const colorRgb = hexToRgb(colorHex);
   if (!colorRgb) {
     return null;

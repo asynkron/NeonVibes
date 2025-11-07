@@ -4,7 +4,7 @@
  */
 
 import { colorRoles, colorPalettes } from "./config.js";
-import { hexToHsl, hslToHex } from "./colors.js";
+import { hexToHsl, hslToHex, hexToRgb } from "./colors.js";
 
 export const paletteState = {
     activeMapping: {},
@@ -18,18 +18,44 @@ export function setRerenderCallback(callback) {
     rerenderCallback = callback;
 }
 
-function hexToRgb(hex) {
-    const trimmed = hex.replace(/^#/, "");
-    const bigint = parseInt(trimmed, 16);
-    return {
-        r: (bigint >> 16) & 255,
-        g: (bigint >> 8) & 255,
-        b: bigint & 255,
-    };
-}
-
 function toCssVar(role) {
     return `--${role.replace(/([A-Z])/g, "-$1").toLowerCase()}`;
+}
+
+/**
+ * Mixes a color towards the surface color for positive variations.
+ * @param {string} hex - Base hex color
+ * @param {string} surfaceHex - Surface color hex
+ * @param {number} steps - Number of steps (1, 2, or 3)
+ * @param {number} stepSize - Amount to mix per step (default 2.5, converted to ratio)
+ * @returns {string} Mixed hex color
+ */
+function mixColorTowardsSurface(hex, surfaceHex, steps, stepSize = 2.5) {
+    if (!hex || !hex.startsWith("#") || !surfaceHex || !surfaceHex.startsWith("#")) {
+        return hex;
+    }
+
+    const colorRgb = hexToRgb(hex);
+    const surfaceRgb = hexToRgb(surfaceHex);
+    
+    if (!colorRgb || !surfaceRgb) {
+        return hex;
+    }
+
+    // Convert stepSize to a mix ratio
+    // For positive-1: mix 10% towards surface (2.5/25 = 0.1)
+    // For positive-2: mix 20% towards surface (5/25 = 0.2)
+    // For positive-3: mix 30% towards surface (7.5/25 = 0.3)
+    // Using 25 as the normalization factor to match the original step size scale
+    const mixRatio = (steps * stepSize) / 25;
+    const clampedRatio = Math.max(0, Math.min(1, mixRatio));
+
+    // Mix the colors
+    const r = Math.round(colorRgb.r * (1 - clampedRatio) + surfaceRgb.r * clampedRatio);
+    const g = Math.round(colorRgb.g * (1 - clampedRatio) + surfaceRgb.g * clampedRatio);
+    const b = Math.round(colorRgb.b * (1 - clampedRatio) + surfaceRgb.b * clampedRatio);
+
+    return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
 }
 
 /**
@@ -37,10 +63,10 @@ function toCssVar(role) {
  * @param {string} hex - Base hex color
  * @param {string} theme - "light" or "dark"
  * @param {number} steps - Number of steps (positive = lighter for light mode/darker for dark mode)
- * @param {number} stepSize - Amount to adjust per step (default 10)
+ * @param {number} stepSize - Amount to adjust per step (default 2.5)
  * @returns {string} Adjusted hex color
  */
-function generateColorVariation(hex, theme, steps, stepSize = 10) {
+function generateColorVariation(hex, theme, steps, stepSize = 2.5) {
     if (!hex || !hex.startsWith("#")) {
         return hex;
     }
@@ -132,7 +158,7 @@ function buildPaletteMapping(palette) {
     // Map UI colors
     if (palette.ui) {
         Object.entries(palette.ui).forEach(([key, color]) => {
-            // Convert "surface-1" to "uiSurface1" for mapping
+            // Convert "surface" to "uiSurface" for mapping
             const camelKey = key.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
             mapping[`ui${camelKey.charAt(0).toUpperCase() + camelKey.slice(1)}`] = color;
         });
@@ -174,7 +200,7 @@ export function getPaletteColor(name) {
 }
 
 export function getUIColor(name) {
-    // Convert "surface-1" to "uiSurface1" for mapping lookup
+    // Convert "surface" to "uiSurface" for mapping lookup
     const camelKey = name.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
     const mappingKey = `ui${camelKey.charAt(0).toUpperCase() + camelKey.slice(1)}`;
     return paletteState.activeMapping[mappingKey] || null;
@@ -214,6 +240,9 @@ export function applyPalette(palette) {
     const root = document.documentElement;
     const theme = palette.theme || "dark";
     
+    // Get surface color for mixing positive variations
+    const surfaceColor = palette.ui?.surface || "#1e2129";
+    
     // Generate color variations for palette colors
     const paletteColorMap = {
         primary: "primary",
@@ -229,18 +258,18 @@ export function applyPalette(palette) {
         Object.entries(paletteColorMap).forEach(([key, name]) => {
             const baseColor = palette.palette[key];
             if (baseColor && baseColor.startsWith("#")) {
-                // Generate positive variations (lighter for dark mode, darker for light mode)
-                const positive3 = generateColorVariation(baseColor, theme, 3, 10);
-                const positive2 = generateColorVariation(baseColor, theme, 2, 10);
-                const positive1 = generateColorVariation(baseColor, theme, 1, 10);
+                // Generate positive variations by mixing towards surface color
+                const positive3 = mixColorTowardsSurface(baseColor, surfaceColor, 3, 2.5);
+                const positive2 = mixColorTowardsSurface(baseColor, surfaceColor, 2, 2.5);
+                const positive1 = mixColorTowardsSurface(baseColor, surfaceColor, 1, 2.5);
                 
                 // Base color
                 const base = baseColor;
                 
                 // Generate negative variations (darker for dark mode, lighter for light mode)
-                const negative1 = generateColorVariation(baseColor, theme, -1, 10);
-                const negative2 = generateColorVariation(baseColor, theme, -2, 10);
-                const negative3 = generateColorVariation(baseColor, theme, -3, 10);
+                const negative1 = generateColorVariation(baseColor, theme, -1, 2.5);
+                const negative2 = generateColorVariation(baseColor, theme, -2, 2.5);
+                const negative3 = generateColorVariation(baseColor, theme, -3, 2.5);
 
                 // Set CSS variables
                 root.style.setProperty(`--${name}-positive-3`, positive3);
@@ -290,14 +319,14 @@ export function applyPalette(palette) {
     if (palette.logging) {
         Object.entries(palette.logging).forEach(([level, color]) => {
             if (color && color.startsWith("#")) {
-                // Generate variations
-                const positive3 = generateColorVariation(color, theme, 3, 10);
-                const positive2 = generateColorVariation(color, theme, 2, 10);
-                const positive1 = generateColorVariation(color, theme, 1, 10);
+                // Generate positive variations by mixing towards surface color
+                const positive3 = mixColorTowardsSurface(color, surfaceColor, 3, 2.5);
+                const positive2 = mixColorTowardsSurface(color, surfaceColor, 2, 2.5);
+                const positive1 = mixColorTowardsSurface(color, surfaceColor, 1, 2.5);
                 const base = color;
-                const negative1 = generateColorVariation(color, theme, -1, 10);
-                const negative2 = generateColorVariation(color, theme, -2, 10);
-                const negative3 = generateColorVariation(color, theme, -3, 10);
+                const negative1 = generateColorVariation(color, theme, -1, 2.5);
+                const negative2 = generateColorVariation(color, theme, -2, 2.5);
+                const negative3 = generateColorVariation(color, theme, -3, 2.5);
 
                 // Set CSS variables
                 root.style.setProperty(`--logging-${level}-positive-3`, positive3);
@@ -333,14 +362,30 @@ export function applyPalette(palette) {
             const skipVariations = key === "highlight" || !color.startsWith("#");
             
             if (!skipVariations && color && color.startsWith("#")) {
-                // Generate variations
-                const positive3 = generateColorVariation(color, theme, 3, 10);
-                const positive2 = generateColorVariation(color, theme, 2, 10);
-                const positive1 = generateColorVariation(color, theme, 1, 10);
-                const base = color;
-                const negative1 = generateColorVariation(color, theme, -1, 10);
-                const negative2 = generateColorVariation(color, theme, -2, 10);
-                const negative3 = generateColorVariation(color, theme, -3, 10);
+                // Declare variables in outer scope
+                let positive3, positive2, positive1, base, negative1, negative2, negative3;
+                
+                // For surface, use normal lightness adjustment for positive variations
+                // For all other UI colors, mix towards surface color for positive variations
+                if (key === "surface") {
+                    // Generate variations using normal lightness adjustment
+                    positive3 = generateColorVariation(color, theme, 3, 2.5);
+                    positive2 = generateColorVariation(color, theme, 2, 2.5);
+                    positive1 = generateColorVariation(color, theme, 1, 2.5);
+                    base = color;
+                    negative1 = generateColorVariation(color, theme, -1, 2.5);
+                    negative2 = generateColorVariation(color, theme, -2, 2.5);
+                    negative3 = generateColorVariation(color, theme, -3, 2.5);
+                } else {
+                    // Generate positive variations by mixing towards surface color
+                    positive3 = mixColorTowardsSurface(color, surfaceColor, 3, 2.5);
+                    positive2 = mixColorTowardsSurface(color, surfaceColor, 2, 2.5);
+                    positive1 = mixColorTowardsSurface(color, surfaceColor, 1, 2.5);
+                    base = color;
+                    negative1 = generateColorVariation(color, theme, -1, 2.5);
+                    negative2 = generateColorVariation(color, theme, -2, 2.5);
+                    negative3 = generateColorVariation(color, theme, -3, 2.5);
+                }
 
                 // Set CSS variables
                 root.style.setProperty(`--ui-${key}-positive-3`, positive3);
@@ -374,14 +419,14 @@ export function applyPalette(palette) {
     if (palette.components) {
         Object.entries(palette.components).forEach(([key, color]) => {
             if (color && color.startsWith("#")) {
-                // Generate variations
-                const positive3 = generateColorVariation(color, theme, 3, 10);
-                const positive2 = generateColorVariation(color, theme, 2, 10);
-                const positive1 = generateColorVariation(color, theme, 1, 10);
+                // Generate positive variations by mixing towards surface color
+                const positive3 = mixColorTowardsSurface(color, surfaceColor, 3, 2.5);
+                const positive2 = mixColorTowardsSurface(color, surfaceColor, 2, 2.5);
+                const positive1 = mixColorTowardsSurface(color, surfaceColor, 1, 2.5);
                 const base = color;
-                const negative1 = generateColorVariation(color, theme, -1, 10);
-                const negative2 = generateColorVariation(color, theme, -2, 10);
-                const negative3 = generateColorVariation(color, theme, -3, 10);
+                const negative1 = generateColorVariation(color, theme, -1, 2.5);
+                const negative2 = generateColorVariation(color, theme, -2, 2.5);
+                const negative3 = generateColorVariation(color, theme, -3, 2.5);
 
                 // Set CSS variables
                 root.style.setProperty(`--component-${key}-positive-3`, positive3);

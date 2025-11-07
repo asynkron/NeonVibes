@@ -51,9 +51,7 @@ export const palette9 = {
         span: QUINARY,
     },
     ui: {
-        "surface-1": BACKGROUND1,
-        "surface-2": BACKGROUND2,
-        "surface-3": BACKGROUND3,
+        surface: BACKGROUND1,
         text: TEXT,
         headers: HEADERS,
         highlight: HIGHLIGHT,

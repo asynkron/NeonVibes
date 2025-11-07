@@ -52,9 +52,7 @@ export const palette6 = {
         span: SENARY,
     },
     ui: {
-        "surface-1": BACKGROUND1,
-        "surface-2": BACKGROUND2,
-        "surface-3": BACKGROUND3,
+        surface: BACKGROUND1,
         text: TEXT,
         headers: WHITE,
         highlight: HIGHLIGHT,

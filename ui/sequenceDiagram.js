@@ -189,9 +189,9 @@ function renderParticipants(lines, trace) {
     console.log(`[renderParticipants] Found ${groupComponents.length} components for group ${groupName}`);
 
     if (groupComponents.length > 0) {
-      // Read surface-2 CSS variable and convert to hex for Mermaid DSL
+      // Read surface CSS variable and convert to hex for Mermaid DSL
       const rootStyles = getComputedStyle(document.documentElement);
-      const surface2 = rootStyles.getPropertyValue('--surface-2').trim() || rootStyles.getPropertyValue('--ui-surface-2').trim() || '#1e2129';
+      const surface2 = rootStyles.getPropertyValue('--ui-surface').trim() || '#1e2129';
 
       // Mermaid box syntax: box [color] name (use hex color)
       lines.push(`    box ${surface2} ${groupName}`);
@@ -836,21 +836,21 @@ export function initSequenceDiagram(host, spans, config = {}) {
 
         // Get CSS variables for styling
         const rootStyles = getComputedStyle(document.documentElement);
-        const surface2 = rootStyles.getPropertyValue('--ui-surface-2').trim() || rootStyles.getPropertyValue('--surface-2').trim() || '#1e2129';
+        const surface2 = rootStyles.getPropertyValue('--ui-surface').trim() || '#1e2129';
         const borderColor = rootStyles.getPropertyValue('--ui-border').trim() || rootStyles.getPropertyValue('--border').trim() || '#3a3a3a';
 
-        console.log("[initSequenceDiagram] Note styling - surface-2:", surface2, "border:", borderColor);
+        console.log("[initSequenceDiagram] Note styling - surface:", surface2, "border:", borderColor);
 
         mermaid.initialize({
           startOnLoad: true,
           theme: config.theme || "dark",
           themeVariables: {
-            // Set main background to surface-2
+            // Set main background to surface
             mainBkg: surface2,
             // Set actor fill to transparent so we can control it
             actorBkg: 'transparent',
             actorBorder: '#81B1DB',
-            // Style notes with surface-2 and border variables
+            // Style notes with surface and border variables
             noteBkgColor: surface2,
             noteBorderColor: borderColor,
             noteTextColor: '#ffffff',

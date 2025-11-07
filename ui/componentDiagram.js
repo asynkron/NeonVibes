@@ -612,17 +612,17 @@ function applyStylingWithSubcomponents(lines, components, groups, calls, trace) 
   lines.push("");
   generateComponentClassDefs(lines);
 
-  // Create classDef for each group using surface-1 color
+  // Create classDef for each group using surface-positive-1 color
   if (groups && groups.size > 0) {
-    // Get surface-1 color for all groups
+    // Get surface-positive-1 color for all groups
     const rootStyles = getComputedStyle(document.documentElement);
-    const surface1 = rootStyles.getPropertyValue('--ui-surface-1').trim() || '#242933';
+    const surface1 = rootStyles.getPropertyValue('--ui-surface-positive-1').trim() || '#242933';
     const borderColor = rootStyles.getPropertyValue('--ui-border').trim() || '#3a3a3a';
 
     groups.forEach((group) => {
       const groupId = escapeMermaidId(group.id);
       const groupClassDefName = `group_${groupId}`;
-      // Use surface-1 color for all groups
+      // Use surface-positive-1 color for all groups
       lines.push(`    classDef ${groupClassDefName} fill:${surface1},stroke:${borderColor},stroke-width:2px,rx:8px,ry:8px`);
     });
   }
@@ -733,17 +733,17 @@ function applyStylingWithoutSubcomponents(lines, components, groups, trace) {
   lines.push("");
   generateComponentClassDefs(lines);
 
-  // Create classDef for each group using surface-1 color
+  // Create classDef for each group using surface-positive-1 color
   if (groups && groups.size > 0) {
-    // Get surface-1 color for all groups
+    // Get surface-positive-1 color for all groups
     const rootStyles = getComputedStyle(document.documentElement);
-    const surface1 = rootStyles.getPropertyValue('--ui-surface-1').trim() || '#242933';
+    const surface1 = rootStyles.getPropertyValue('--ui-surface-positive-1').trim() || '#242933';
     const borderColor = rootStyles.getPropertyValue('--ui-border').trim() || '#3a3a3a';
 
     groups.forEach((group) => {
       const groupId = escapeMermaidId(group.id);
       const groupClassDefName = `group_${groupId}`;
-      // Use surface-1 color for all groups
+      // Use surface-positive-1 color for all groups
       lines.push(`    classDef ${groupClassDefName} fill:${surface1},stroke:${borderColor},stroke-width:2px,rx:8px,ry:8px`);
     });
   }
@@ -961,9 +961,9 @@ function applyGroupSubgraphColors(host, trace) {
     return;
   }
 
-  // Get surface-1 color for all groups
+  // Get surface-positive-1 color for all groups
   const rootStyles = getComputedStyle(document.documentElement);
-  const surface1 = rootStyles.getPropertyValue('--ui-surface-1').trim() || '#242933';
+  const surface1 = rootStyles.getPropertyValue('--ui-surface-positive-1').trim() || '#242933';
 
   // Mermaid renders subgraphs as <g> elements with class "cluster"
   trace.groups.forEach((group) => {
@@ -1119,9 +1119,9 @@ export function initComponentDiagram(host, spans, config = {}) {
         const rootStyles = getComputedStyle(document.documentElement);
         const borderColor = rootStyles.getPropertyValue('--ui-border').trim() || '#3a3a3a';
         const textColor = rootStyles.getPropertyValue('--ui-text').trim() || '#d7dce3';
-        const surface1 = rootStyles.getPropertyValue('--ui-surface-1').trim() || '#242933';
-        const surface2 = rootStyles.getPropertyValue('--ui-surface-2').trim() || '#1e2129';
-        const surface3 = rootStyles.getPropertyValue('--ui-surface-3').trim() || '#12161e';
+        const surface1 = rootStyles.getPropertyValue('--ui-surface-positive-1').trim() || '#242933';
+        const surface2 = rootStyles.getPropertyValue('--ui-surface').trim() || '#1e2129';
+        const surface3 = rootStyles.getPropertyValue('--ui-surface-negative-1').trim() || '#12161e';
         const fontFamily = rootStyles.getPropertyValue('--font-base').trim() || '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
         const fontSize = rootStyles.getPropertyValue('--font-size-base').trim() || '1rem';
 

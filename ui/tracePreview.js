@@ -67,7 +67,7 @@ function createPreviewSVG() {
 function createPreviewBackground(svg) {
   const root = document.documentElement;
   const style = getComputedStyle(root);
-  let surfaceColor = style.getPropertyValue("--ui-surface-2").trim();
+  let surfaceColor = style.getPropertyValue("--ui-surface").trim();
 
   if (!surfaceColor) {
     surfaceColor = "#1e2129"; // Dark fallback
@@ -443,10 +443,10 @@ export function renderTracePreview(trace, onSelectionChange = null, initialSelec
     const backgroundRect = svg.querySelector("rect.trace-preview-background");
     if (backgroundRect) {
       const root = document.documentElement;
-      let surfaceColor = root.style.getPropertyValue("--ui-surface-2").trim();
+      let surfaceColor = root.style.getPropertyValue("--ui-surface").trim();
       if (!surfaceColor) {
         const style = getComputedStyle(root);
-        surfaceColor = style.getPropertyValue("--ui-surface-2").trim();
+        surfaceColor = style.getPropertyValue("--ui-surface").trim();
       }
       backgroundRect.setAttribute("fill", surfaceColor || "#1e2129");
       console.log("[Trace Preview Update] Background color:", surfaceColor);
