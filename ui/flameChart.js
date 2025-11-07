@@ -97,7 +97,7 @@ function getServiceColorCssVar(colorKey, trace) {
   const serviceIndex = trace.serviceNameMapping?.get(colorKey) ?? 0;
   const colorIndex = serviceIndex % paletteColorNames.length;
   const colorName = paletteColorNames[colorIndex];
-  return `--${colorName}-positive-3`;
+  return `--${colorName}-positive-2`;
 }
 
 /**

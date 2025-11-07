@@ -123,8 +123,8 @@ function getComponentColorCssVar(component) {
   const kind = (component.kind || ComponentKind.SERVICE).toLowerCase();
   const paletteKey = componentKindMap[kind] || "service";
 
-  // Return CSS variable name with positive-3 variation (e.g., "--component-service-positive-3")
-  return `--component-${paletteKey}-positive-3`;
+  // Return CSS variable name with positive-2 variation (e.g., "--component-service-positive-2")
+  return `--component-${paletteKey}-positive-2`;
 }
 
 /**
@@ -189,13 +189,9 @@ function renderParticipants(lines, trace) {
     console.log(`[renderParticipants] Found ${groupComponents.length} components for group ${groupName}`);
 
     if (groupComponents.length > 0) {
-      // Read surface CSS variable and convert to hex for Mermaid DSL
-      const rootStyles = getComputedStyle(document.documentElement);
-      const surface2 = rootStyles.getPropertyValue('--ui-surface').trim() || '#1e2129';
-
-      // Mermaid box syntax: box [color] name (use hex color)
-      lines.push(`    box ${surface2} ${groupName}`);
-      console.log(`[renderParticipants] Box color for group ${groupName}: ${surface2}`);
+      // Mermaid box syntax: box "Group Name" (color applied via SVG post-processing)
+      lines.push(`    box "${groupName}"`);
+      console.log(`[renderParticipants] Box for group ${groupName}`);
 
       // Sort components by entrypointType: entrypoints (1) first, then internals (2), then exitpoints (3)
       const sortedComponents = [...groupComponents].sort((a, b) => {
@@ -310,18 +306,57 @@ function applyParticipantColors(host, trace) {
     }
   });
 
-  // Apply special color to "Start" participant using CSS variable with positive-3 variation
+  // Apply special color to "Start" participant using CSS variable with positive-2 variation
   const startRects = mermaidSvg.querySelectorAll(`rect[name="start"]`);
   if (startRects.length > 0) {
     startRects.forEach((rect) => {
-      // Use CSS variable with positive-3 variation
-      rect.style.fill = "var(--ui-success-positive-3)";
-      rect.style.stroke = "var(--ui-success-positive-3)";
+      // Use CSS variable with positive-2 variation
+      rect.style.fill = "var(--ui-success-positive-2)";
+      rect.style.stroke = "var(--ui-success-positive-2)";
       rect.style.strokeWidth = "2px";
     });
-    console.log(`[applyParticipantColors] Applied CSS variable --ui-success-positive-3 to ${startRects.length} rect(s) with name="start"`);
+    console.log(`[applyParticipantColors] Applied CSS variable --ui-success-positive-2 to ${startRects.length} rect(s) with name="start"`);
   } else {
     console.warn(`[applyParticipantColors] No rects found with name="start"`);
+  }
+
+  // Apply surface-positive-1 color to box backgrounds
+  const rootStyles = getComputedStyle(document.documentElement);
+  const surfacePositive1 = rootStyles.getPropertyValue('--ui-surface-positive-1').trim() || '#242933';
+
+  // Mermaid creates boxes as <g> elements with class "boxGroup" or similar
+  // The background is typically a <rect> inside the box group
+  // Try different selectors to find box rectangles
+  const boxRects = mermaidSvg.querySelectorAll('g.boxGroup rect, g.box rect, rect.box');
+  if (boxRects.length > 0) {
+    boxRects.forEach((rect) => {
+      rect.style.fill = surfacePositive1;
+    });
+    console.log(`[applyParticipantColors] Applied surface-positive-1 color to ${boxRects.length} box rect(s)`);
+  } else {
+    // Alternative: look for rects that are children of groups that might be boxes
+    // Mermaid boxes are typically in a structure like: <g class="boxGroup"><rect>...</rect></g>
+    const allGroups = mermaidSvg.querySelectorAll('g');
+    let boxCount = 0;
+    allGroups.forEach((group) => {
+      // Check if this group contains a rect that looks like a box background
+      const rects = group.querySelectorAll('rect');
+      rects.forEach((rect) => {
+        // Box backgrounds are typically large rectangles that aren't participant headers
+        // They usually have a fill color set by Mermaid's theme
+        const rectFill = rect.getAttribute('fill') || '';
+        // If it's a background-like rect (not a participant header), apply our color
+        if (rectFill && !rect.hasAttribute('name') && rect.getBBox().width > 100) {
+          rect.style.fill = surfacePositive1;
+          boxCount++;
+        }
+      });
+    });
+    if (boxCount > 0) {
+      console.log(`[applyParticipantColors] Applied surface-positive-1 color to ${boxCount} box background rect(s)`);
+    } else {
+      console.warn(`[applyParticipantColors] No box rectangles found to color`);
+    }
   }
 }
 
