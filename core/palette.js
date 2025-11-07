@@ -42,12 +42,16 @@ function mixColorTowardsSurface(hex, surfaceHex, steps, stepSize = 2.5) {
         return hex;
     }
 
-    // Convert stepSize to a mix ratio
-    // For positive-1: mix 10% towards surface (2.5/25 = 0.1)
-    // For positive-2: mix 20% towards surface (5/25 = 0.2)
-    // For positive-3: mix 30% towards surface (7.5/25 = 0.3)
-    // Using 25 as the normalization factor to match the original step size scale
-    const mixRatio = (steps * stepSize) / 25;
+    // Map steps to mix ratios
+    // For positive-1: mix 15% towards surface
+    // For positive-2: mix 30% towards surface
+    // For positive-3: mix 45% towards surface
+    const mixRatios = {
+        1: 0.15,
+        2: 0.30,
+        3: 0.45
+    };
+    const mixRatio = mixRatios[steps] || 0.15;
     const clampedRatio = Math.max(0, Math.min(1, mixRatio));
 
     // Mix the colors
