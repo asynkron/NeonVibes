@@ -250,6 +250,26 @@ export function applyPalette(palette) {
                 root.style.setProperty(`--${name}-negative-1`, negative1);
                 root.style.setProperty(`--${name}-negative-2`, negative2);
                 root.style.setProperty(`--${name}-negative-3`, negative3);
+
+                // Generate RGB variants for all variations
+                const variations = [
+                    { name: `${name}-positive-3`, color: positive3 },
+                    { name: `${name}-positive-2`, color: positive2 },
+                    { name: `${name}-positive-1`, color: positive1 },
+                    { name: name, color: base },
+                    { name: `${name}-negative-1`, color: negative1 },
+                    { name: `${name}-negative-2`, color: negative2 },
+                    { name: `${name}-negative-3`, color: negative3 },
+                ];
+
+                variations.forEach(({ name: varName, color: colorValue }) => {
+                    try {
+                        const { r, g, b } = hexToRgb(colorValue);
+                        root.style.setProperty(`--${varName}-rgb`, `${r} ${g} ${b}`);
+                    } catch (e) {
+                        // Skip rgb variant if color conversion fails
+                    }
+                });
             }
         });
     }

@@ -5,7 +5,6 @@
 
 import { hexToRgba } from "../core/colors.js";
 import { getColorKeyFromNode } from "../core/identity.js";
-import { computeServiceColor } from "../core/colorService.js";
 import { computeSpanOffsets } from "./trace.js";
 
 /**
@@ -93,10 +92,27 @@ function createPreviewBackground(svg) {
  * @param {number} spanHeight - The height of each span
  * @returns {SVGRectElement} The span rectangle
  */
+/**
+ * Gets the CSS variable name for a service color based on its index.
+ * Maps service index to palette color CSS variables (primary, secondary, tertiary, etc.)
+ * @param {string} colorKey - Color key (groupName || serviceName) to look up
+ * @param {TraceModel} trace - Trace model with serviceNameMapping
+ * @returns {string} CSS variable name (e.g., "--primary-positive-2")
+ */
+function getServiceColorCssVar(colorKey, trace) {
+  const paletteColorNames = ["primary", "secondary", "tertiary", "quaternary", "quinary", "senary"];
+  const serviceIndex = trace.serviceNameMapping?.get(colorKey) ?? 0;
+  const colorIndex = serviceIndex % paletteColorNames.length;
+  const colorName = paletteColorNames[colorIndex];
+  return `--${colorName}-positive-2`;
+}
+
 function createSpanRect(node, trace, index, spanHeight) {
   const offsets = computeSpanOffsets(trace, node.span, { start: 0, end: 100 });
   const colorKey = getColorKeyFromNode(node);
-  const color = computeServiceColor(colorKey, trace);
+  const cssVar = getServiceColorCssVar(colorKey, trace);
+  const rootStyles = getComputedStyle(document.documentElement);
+  const color = rootStyles.getPropertyValue(cssVar).trim() || "#61afef";
 
   const y = SPAN_GAP + index * (spanHeight + SPAN_GAP);
   let x = offsets.startPercent;
@@ -438,17 +454,19 @@ export function renderTracePreview(trace, onSelectionChange = null, initialSelec
       console.log("[Trace Preview Update] Background color:", surfaceColor);
     }
 
-    // Update span rectangle fill colors
+    // Update span rectangle fill colors using CSS variables
     const spanRects = svg.querySelectorAll("rect:not(.trace-preview-background):not(.trace-preview__selection)");
+    const rootStyles = getComputedStyle(document.documentElement);
     spanRects.forEach((rect, index) => {
       if (index < allSpans.length) {
         const node = allSpans[index];
         const colorKey = getColorKeyFromNode(node);
-        const color = computeServiceColor(colorKey, trace);
+        const cssVar = getServiceColorCssVar(colorKey, trace);
+        const color = rootStyles.getPropertyValue(cssVar).trim() || "#61afef";
         const rgba = hexToRgba(color, 0.6);
         rect.setAttribute("fill", rgba);
         if (index < 3) {
-          console.log(`[Trace Preview Update] Span ${index}: colorKey="${colorKey}", groupName="${node.description?.groupName}", serviceName="${node.span.resource?.serviceName}", color="${color}", rgba="${rgba}"`);
+          console.log(`[Trace Preview Update] Span ${index}: colorKey="${colorKey}", groupName="${node.description?.groupName}", serviceName="${node.span.resource?.serviceName}", cssVar="${cssVar}", color="${color}", rgba="${rgba}"`);
         }
       }
     });

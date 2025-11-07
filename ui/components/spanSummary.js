@@ -5,7 +5,6 @@
 
 import { h } from "../../core/dom.js";
 import { getColorKeyFromNode } from "../../core/identity.js";
-import { computeServiceColorRgb } from "../../core/colorService.js";
 import { renderSpanMarkers, renderRunlineX, renderRunlineY, computeSpanOffsets, formatDurationNano, toNumberTimestamp } from "../trace.js";
 
 /**
@@ -33,11 +32,27 @@ export function createSpanLeftSection(trace, node) {
   const serviceName = getColorKeyFromNode(node);
   const componentName = node.description?.componentName;
 
-  // Use centralized color service
-  const serviceRgb = computeServiceColorRgb(serviceName, trace);
-  const indicatorStyle = serviceRgb
-    ? { backgroundColor: `rgba(${serviceRgb.r}, ${serviceRgb.g}, ${serviceRgb.b}, 0.6)` }
-    : {};
+  // Get CSS variable for service color
+  const paletteColorNames = ["primary", "secondary", "tertiary", "quaternary", "quinary", "senary"];
+  const serviceIndex = trace.serviceNameMapping?.get(serviceName) ?? 0;
+  const colorIndex = serviceIndex % paletteColorNames.length;
+  const colorName = paletteColorNames[colorIndex];
+  const rgbCssVar = `--${colorName}-positive-2-rgb`;
+  const rootStyles = getComputedStyle(document.documentElement);
+  const rgbValue = rootStyles.getPropertyValue(rgbCssVar).trim();
+  
+  let indicatorStyle = {};
+  if (rgbValue) {
+    const [r, g, b] = rgbValue.split(/\s+/).map(v => parseInt(v, 10));
+    if (!isNaN(r) && !isNaN(g) && !isNaN(b)) {
+      indicatorStyle = { backgroundColor: `rgba(${r}, ${g}, ${b}, 0.6)` };
+    }
+  }
+  
+  const serviceRgb = rgbValue ? (() => {
+    const [r, g, b] = rgbValue.split(/\s+/).map(v => parseInt(v, 10));
+    return !isNaN(r) && !isNaN(g) && !isNaN(b) ? { r, g, b } : null;
+  })() : null;
 
   const service = h('button', {
     type: 'button',
