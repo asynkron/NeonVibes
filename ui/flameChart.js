@@ -7,8 +7,6 @@
 import { h } from "../core/dom.js";
 import { toNumberTimestamp, buildTraceModel, formatDurationNano } from "./trace.js";
 import { getColorKeyFromNode } from "../core/identity.js";
-import { computeServiceColor } from "../core/colorService.js";
-import { hexToRgb } from "../core/colors.js";
 import { ComponentKind } from "./metaModel.js";
 
 /**
@@ -88,14 +86,18 @@ function hasError(node) {
 }
 
 /**
- * Gets the color for a span based on component kind and service.
- * @param {TraceSpanNode} node - The span node
- * @param {TraceModel} trace - The trace model
- * @returns {string} Color hex string
+ * Gets the CSS variable name for a service color based on its index.
+ * Maps service index to palette color CSS variables (primary, secondary, tertiary, etc.)
+ * @param {string} colorKey - Color key (groupName || serviceName) to look up
+ * @param {TraceModel} trace - Trace model with serviceNameMapping
+ * @returns {string} CSS variable name (e.g., "--primary-positive-2")
  */
-function getSpanColor(node, trace) {
-  const colorKey = getColorKeyFromNode(node);
-  return computeServiceColor(colorKey, trace);
+function getServiceColorCssVar(colorKey, trace) {
+  const paletteColorNames = ["primary", "secondary", "tertiary", "quaternary", "quinary", "senary"];
+  const serviceIndex = trace.serviceNameMapping?.get(colorKey) ?? 0;
+  const colorIndex = serviceIndex % paletteColorNames.length;
+  const colorName = paletteColorNames[colorIndex];
+  return `--${colorName}-positive-2`;
 }
 
 /**
@@ -262,7 +264,7 @@ function createFlameChildrenWidget(parentNode, trace, widestDuration, outerWidth
 }
 
 /**
- * Applies colors to flame chart spans based on component kind and service.
+ * Applies colors to flame chart spans using CSS variables.
  * @param {HTMLElement} host - The host element
  * @param {TraceModel} trace - The trace model
  */
@@ -289,11 +291,10 @@ function applyFlameChartColors(host, trace) {
     const node = findNode(trace.roots);
     if (!node) return;
 
-    const color = getSpanColor(node, trace);
-    const rgb = hexToRgb(color);
-    if (rgb) {
-      bar.style.backgroundColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.6)`;
-    }
+    const colorKey = getColorKeyFromNode(node);
+    const cssVar = getServiceColorCssVar(colorKey, trace);
+    bar.style.setProperty('--span-color', `var(${cssVar})`);
+    bar.style.backgroundColor = `color-mix(in srgb, var(${cssVar}) 60%, transparent)`;
   });
 
   spanBgs.forEach((bg) => {
@@ -314,11 +315,10 @@ function applyFlameChartColors(host, trace) {
     const node = findNode(trace.roots);
     if (!node) return;
 
-    const color = getSpanColor(node, trace);
-    const rgb = hexToRgb(color);
-    if (rgb) {
-      bg.style.backgroundColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.65)`;
-    }
+    const colorKey = getColorKeyFromNode(node);
+    const cssVar = getServiceColorCssVar(colorKey, trace);
+    bg.style.setProperty('--span-color', `var(${cssVar})`);
+    bg.style.backgroundColor = `color-mix(in srgb, var(${cssVar}) 65%, transparent)`;
   });
 }
 

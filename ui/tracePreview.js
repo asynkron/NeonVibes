@@ -3,7 +3,6 @@
  * Renders an interactive SVG preview of trace spans with time window selection.
  */
 
-import { hexToRgba } from "../core/colors.js";
 import { getColorKeyFromNode } from "../core/identity.js";
 import { computeSpanOffsets } from "./trace.js";
 
@@ -111,8 +110,6 @@ function createSpanRect(node, trace, index, spanHeight) {
   const offsets = computeSpanOffsets(trace, node.span, { start: 0, end: 100 });
   const colorKey = getColorKeyFromNode(node);
   const cssVar = getServiceColorCssVar(colorKey, trace);
-  const rootStyles = getComputedStyle(document.documentElement);
-  const color = rootStyles.getPropertyValue(cssVar).trim() || "#61afef";
 
   const y = SPAN_GAP + index * (spanHeight + SPAN_GAP);
   let x = offsets.startPercent;
@@ -135,7 +132,8 @@ function createSpanRect(node, trace, index, spanHeight) {
   rect.setAttribute("width", `${width}`);
   rect.setAttribute("height", `${spanHeight}`);
   rect.setAttribute("rx", "0");
-  rect.setAttribute("fill", hexToRgba(color, 0.6));
+  rect.style.setProperty("--span-color", `var(${cssVar})`);
+  rect.style.fill = `color-mix(in srgb, var(${cssVar}) 60%, transparent)`;
   return rect;
 }
 
@@ -456,17 +454,15 @@ export function renderTracePreview(trace, onSelectionChange = null, initialSelec
 
     // Update span rectangle fill colors using CSS variables
     const spanRects = svg.querySelectorAll("rect:not(.trace-preview-background):not(.trace-preview__selection)");
-    const rootStyles = getComputedStyle(document.documentElement);
     spanRects.forEach((rect, index) => {
       if (index < allSpans.length) {
         const node = allSpans[index];
         const colorKey = getColorKeyFromNode(node);
         const cssVar = getServiceColorCssVar(colorKey, trace);
-        const color = rootStyles.getPropertyValue(cssVar).trim() || "#61afef";
-        const rgba = hexToRgba(color, 0.6);
-        rect.setAttribute("fill", rgba);
+        rect.style.setProperty("--span-color", `var(${cssVar})`);
+        rect.style.fill = `color-mix(in srgb, var(${cssVar}) 60%, transparent)`;
         if (index < 3) {
-          console.log(`[Trace Preview Update] Span ${index}: colorKey="${colorKey}", groupName="${node.description?.groupName}", serviceName="${node.span.resource?.serviceName}", cssVar="${cssVar}", color="${color}", rgba="${rgba}"`);
+          console.log(`[Trace Preview Update] Span ${index}: colorKey="${colorKey}", groupName="${node.description?.groupName}", serviceName="${node.span.resource?.serviceName}", cssVar="${cssVar}"`);
         }
       }
     });

@@ -37,22 +37,12 @@ export function createSpanLeftSection(trace, node) {
   const serviceIndex = trace.serviceNameMapping?.get(serviceName) ?? 0;
   const colorIndex = serviceIndex % paletteColorNames.length;
   const colorName = paletteColorNames[colorIndex];
-  const rgbCssVar = `--${colorName}-positive-2-rgb`;
-  const rootStyles = getComputedStyle(document.documentElement);
-  const rgbValue = rootStyles.getPropertyValue(rgbCssVar).trim();
+  const cssVar = `--${colorName}-positive-2`;
   
-  let indicatorStyle = {};
-  if (rgbValue) {
-    const [r, g, b] = rgbValue.split(/\s+/).map(v => parseInt(v, 10));
-    if (!isNaN(r) && !isNaN(g) && !isNaN(b)) {
-      indicatorStyle = { backgroundColor: `rgba(${r}, ${g}, ${b}, 0.6)` };
-    }
-  }
-  
-  const serviceRgb = rgbValue ? (() => {
-    const [r, g, b] = rgbValue.split(/\s+/).map(v => parseInt(v, 10));
-    return !isNaN(r) && !isNaN(g) && !isNaN(b) ? { r, g, b } : null;
-  })() : null;
+  const indicatorStyle = {
+    "--service-color": `var(${cssVar})`,
+    backgroundColor: `color-mix(in srgb, var(${cssVar}) 60%, transparent)`
+  };
 
   const service = h('button', {
     type: 'button',
@@ -66,7 +56,7 @@ export function createSpanLeftSection(trace, node) {
   ));
   leftSection.append(service);
 
-  return { leftSection, expander, service, serviceRgb };
+  return { leftSection, expander, service, serviceCssVar: cssVar };
 }
 
 /**
@@ -75,11 +65,11 @@ export function createSpanLeftSection(trace, node) {
  * @param {import("../trace.js").TraceSpanNode} node - The span node
  * @param {Object} timeWindow - Time window { start: 0-100, end: 0-100 }
  * @param {Object} offsets - Span offsets { startPercent, widthPercent }
- * @param {Object} serviceRgb - Service color RGB { r, g, b }
+ * @param {string} serviceCssVar - Service color CSS variable (e.g., "--primary-positive-2")
  * @param {boolean} showRunlineX - Whether to show horizontal runlines
  * @returns {HTMLElement} The span bar element
  */
-export function createSpanBar(trace, node, timeWindow, offsets, serviceRgb, showRunlineX) {
+export function createSpanBar(trace, node, timeWindow, offsets, serviceCssVar, showRunlineX) {
   const bar = h('div', { className: 'trace-span__bar' });
 
   // Hide the bar if span is fully outside the time window
@@ -87,11 +77,10 @@ export function createSpanBar(trace, node, timeWindow, offsets, serviceRgb, show
     bar.style.display = "none";
   }
 
-  // Use centralized color service for bar colors
-  if (serviceRgb) {
-    // Use rgba with 0.6 opacity for less intense colors
-    bar.style.setProperty("--service-color", `rgba(${serviceRgb.r}, ${serviceRgb.g}, ${serviceRgb.b}, 0.6)`);
-    bar.style.setProperty("--service-shadow", `0 0 18px rgba(${serviceRgb.r}, ${serviceRgb.g}, ${serviceRgb.b}, 0.25)`);
+  // Use CSS variable for bar colors
+  if (serviceCssVar) {
+    bar.style.setProperty("--service-color", `var(${serviceCssVar})`);
+    bar.style.setProperty("--service-shadow", `0 0 18px color-mix(in srgb, var(${serviceCssVar}) 25%, transparent)`);
   }
 
   const name = h('span', { className: 'trace-span__name', textContent: node.span.name });
@@ -128,11 +117,11 @@ export function createSpanBar(trace, node, timeWindow, offsets, serviceRgb, show
  * @param {import("../trace.js").TraceModel} trace - The trace model
  * @param {import("../trace.js").TraceSpanNode} node - The span node
  * @param {Object} timeWindow - Time window { start: 0-100, end: 0-100 }
- * @param {Object} serviceRgb - Service color RGB { r, g, b }
+ * @param {string} serviceCssVar - Service color CSS variable (e.g., "--primary-positive-2")
  * @param {boolean} showRunlineX - Whether to show horizontal runlines
  * @returns {HTMLElement} The timeline button element
  */
-export function createSpanTimeline(trace, node, timeWindow, serviceRgb, showRunlineX) {
+export function createSpanTimeline(trace, node, timeWindow, serviceCssVar, showRunlineX) {
   const timeline = h('button', {
     type: 'button',
     className: 'trace-span__timeline',
@@ -144,7 +133,7 @@ export function createSpanTimeline(trace, node, timeWindow, serviceRgb, showRunl
   timeline.style.setProperty("--span-width", `${offsets.widthPercent}%`);
 
   // Create bar with name, duration, markers, and runlines
-  const bar = createSpanBar(trace, node, timeWindow, offsets, serviceRgb, showRunlineX);
+  const bar = createSpanBar(trace, node, timeWindow, offsets, serviceCssVar, showRunlineX);
   timeline.append(bar);
 
   return timeline;
@@ -168,11 +157,11 @@ export function renderSpanSummary(trace, node, timeWindow = { start: 0, end: 100
   });
 
   // Create left section (expander and service)
-  const { leftSection, expander, service, serviceRgb } = createSpanLeftSection(trace, node);
+  const { leftSection, expander, service, serviceCssVar } = createSpanLeftSection(trace, node);
   summary.append(leftSection);
 
   // Create timeline with bar
-  const timeline = createSpanTimeline(trace, node, timeWindow, serviceRgb, showRunlineX);
+  const timeline = createSpanTimeline(trace, node, timeWindow, serviceCssVar, showRunlineX);
   summary.append(timeline);
 
   // Add runline-y elements connecting parent to children in the timeline area

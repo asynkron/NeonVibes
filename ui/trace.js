@@ -1821,20 +1821,6 @@ function getServiceColorCssVar(serviceName, trace) {
 }
 
 /**
- * Gets the RGB CSS variable name for a service color.
- * @param {string} serviceName - Service name to look up
- * @param {TraceModel} trace - Trace model with serviceNameMapping
- * @returns {string} RGB CSS variable name (e.g., "--primary-positive-2-rgb")
- */
-function getServiceColorRgbCssVar(serviceName, trace) {
-  const paletteColorNames = ["primary", "secondary", "tertiary", "quaternary", "quinary", "senary"];
-  const serviceIndex = trace.serviceNameMapping?.get(serviceName) ?? 0;
-  const colorIndex = serviceIndex % paletteColorNames.length;
-  const colorName = paletteColorNames[colorIndex];
-  return `--${colorName}-positive-2-rgb`;
-}
-
-/**
  * Updates service color indicators in span summaries using CSS variables.
  * @param {HTMLElement} host - The host element
  * @param {TraceModel} trace - The trace model
@@ -1843,26 +1829,18 @@ function updateServiceColors(host, trace) {
   const serviceButtons = host.querySelectorAll(".trace-span__service");
   console.log(`[Trace Viewer Update] Found ${serviceButtons.length} service buttons to update`);
   let updateCount = 0;
-  const rootStyles = getComputedStyle(document.documentElement);
   
   serviceButtons.forEach((serviceButton) => {
     const serviceName = serviceButton.querySelector(".trace-span__service-name")?.textContent || "unknown-service";
     const serviceIndex = trace.serviceNameMapping?.get(serviceName) ?? 0;
-    const rgbCssVar = getServiceColorRgbCssVar(serviceName, trace);
-    const rgbValue = rootStyles.getPropertyValue(rgbCssVar).trim();
-
-    if (rgbValue) {
-      const [r, g, b] = rgbValue.split(/\s+/).map(v => parseInt(v, 10));
-      if (!isNaN(r) && !isNaN(g) && !isNaN(b)) {
-        const serviceColorStyle = `background-color: rgba(${r}, ${g}, ${b}, 0.6);`;
-        const indicator = serviceButton.querySelector(".trace-span__service-indicator");
-        if (indicator) {
-          indicator.style.cssText = serviceColorStyle;
-          updateCount++;
-          if (updateCount <= 3) {
-            console.log(`[Trace Viewer Update] Service indicator: service="${serviceName}", index=${serviceIndex}, rgb="${rgbValue}", rgba(${r}, ${g}, ${b}, 0.6)`);
-          }
-        }
+    const cssVar = getServiceColorCssVar(serviceName, trace);
+    const indicator = serviceButton.querySelector(".trace-span__service-indicator");
+    if (indicator) {
+      indicator.style.setProperty("--service-color", `var(${cssVar})`);
+      indicator.style.backgroundColor = `color-mix(in srgb, var(${cssVar}) 60%, transparent)`;
+      updateCount++;
+      if (updateCount <= 3) {
+        console.log(`[Trace Viewer Update] Service indicator: service="${serviceName}", index=${serviceIndex}, cssVar="${cssVar}"`);
       }
     }
   });
@@ -1878,7 +1856,6 @@ function updateSpanBars(host, trace) {
   const bars = host.querySelectorAll(".trace-span__bar");
   console.log(`[Trace Viewer Update] Found ${bars.length} span bars to update`);
   let barUpdateCount = 0;
-  const rootStyles = getComputedStyle(document.documentElement);
   
   bars.forEach((bar) => {
     const summary = bar.closest(".trace-span__summary");
@@ -1889,21 +1866,12 @@ function updateSpanBars(host, trace) {
 
     const serviceName = serviceButton.querySelector(".trace-span__service-name")?.textContent || "unknown-service";
     const serviceIndex = trace.serviceNameMapping?.get(serviceName) ?? 0;
-    const rgbCssVar = getServiceColorRgbCssVar(serviceName, trace);
-    const rgbValue = rootStyles.getPropertyValue(rgbCssVar).trim();
-
-    if (rgbValue) {
-      const [r, g, b] = rgbValue.split(/\s+/).map(v => parseInt(v, 10));
-      if (!isNaN(r) && !isNaN(g) && !isNaN(b)) {
-        const colorValue = `rgba(${r}, ${g}, ${b}, 0.6)`;
-        const shadowValue = `0 0 18px rgba(${r}, ${g}, ${b}, 0.25)`;
-        bar.style.setProperty("--service-color", colorValue);
-        bar.style.setProperty("--service-shadow", shadowValue);
-        barUpdateCount++;
-        if (barUpdateCount <= 3) {
-          console.log(`[Trace Viewer Update] Span bar: service="${serviceName}", index=${serviceIndex}, rgb="${rgbValue}", --service-color="${colorValue}"`);
-        }
-      }
+    const cssVar = getServiceColorCssVar(serviceName, trace);
+    bar.style.setProperty("--service-color", `var(${cssVar})`);
+    bar.style.setProperty("--service-shadow", `0 0 18px color-mix(in srgb, var(${cssVar}) 25%, transparent)`);
+    barUpdateCount++;
+    if (barUpdateCount <= 3) {
+      console.log(`[Trace Viewer Update] Span bar: service="${serviceName}", index=${serviceIndex}, cssVar="${cssVar}"`);
     }
   });
   console.log(`[Trace Viewer Update] Updated ${barUpdateCount} span bars`);
