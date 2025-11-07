@@ -32,6 +32,7 @@ const COMPONENT_DARK_GRAY = "#34495e";
 export const palette16 = {
     id: "palette-16",
     label: "Palette 16 — Ayu Dark",
+    theme: "dark",
     palette: {
         primary: PRIMARY,
         secondary: SECONDARY,

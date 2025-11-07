@@ -32,6 +32,7 @@ const COMPONENT_DARK_GRAY = "#34495e";
 export const palette13 = {
     id: "palette-13",
     label: "Palette 13 — Tokyo Night",
+    theme: "dark",
     palette: {
         primary: PRIMARY,
         secondary: SECONDARY,

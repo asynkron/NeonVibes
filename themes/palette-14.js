@@ -33,6 +33,7 @@ const COMPONENT_DARK_GRAY = "#34495e";
 export const palette14 = {
     id: "palette-14",
     label: "Palette 14 — Catppuccin Latte",
+    theme: "light",
     palette: {
         primary: PRIMARY,
         secondary: SECONDARY,

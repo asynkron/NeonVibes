@@ -105,7 +105,7 @@ function getCurrentPalette() {
 /**
  * Gets component color CSS variable name based on component kind
  * @param {Component} component - Component to get color for
- * @returns {string|null} CSS variable name (e.g., "--component-service") or null
+ * @returns {string|null} CSS variable name (e.g., "--component-service-positive-2") or null
  */
 function getComponentColorCssVar(component) {
   // Map component kinds to palette component keys (same as component diagrams)
@@ -125,9 +125,9 @@ function getComponentColorCssVar(component) {
 
   const kind = (component.kind || ComponentKind.SERVICE).toLowerCase();
   const paletteKey = componentKindMap[kind] || "service";
-  
-  // Return CSS variable name (e.g., "--component-service")
-  return `--component-${paletteKey}`;
+
+  // Return CSS variable name with positive-2 variation (e.g., "--component-service-positive-2")
+  return `--component-${paletteKey}-positive-2`;
 }
 
 /**
@@ -192,24 +192,13 @@ function renderParticipants(lines, trace) {
     console.log(`[renderParticipants] Found ${groupComponents.length} components for group ${groupName}`);
 
     if (groupComponents.length > 0) {
-      // Use surface-2 color for group boxes
+      // Read surface-2 CSS variable and convert to hex for Mermaid DSL
       const rootStyles = getComputedStyle(document.documentElement);
       const surface2 = rootStyles.getPropertyValue('--surface-2').trim() || rootStyles.getPropertyValue('--ui-surface-2').trim() || '#1e2129';
-      const rgb = hexToRgb(surface2);
 
-      let boxColor = "";
-      if (rgb) {
-        // Use rgba format for Mermaid box syntax
-        boxColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 1.0)`;
-        console.log(`[renderParticipants] Box color for group ${groupName}: ${boxColor} (using surface-2)`);
-      }
-
-      // Mermaid box syntax: box [color] name
-      if (boxColor) {
-        lines.push(`    box ${boxColor} ${groupName}`);
-      } else {
-        lines.push(`    box ${groupName}`);
-      }
+      // Mermaid box syntax: box [color] name (use hex color)
+      lines.push(`    box ${surface2} ${groupName}`);
+      console.log(`[renderParticipants] Box color for group ${groupName}: ${surface2}`);
 
       // Sort components by entrypointType: entrypoints (1) first, then internals (2), then exitpoints (3)
       const sortedComponents = [...groupComponents].sort((a, b) => {
@@ -342,16 +331,16 @@ function applyParticipantColors(host, trace) {
     }
   });
 
-  // Apply special color to "Start" participant using CSS variable
+  // Apply special color to "Start" participant using CSS variable with positive-2 variation
   const startRects = mermaidSvg.querySelectorAll(`rect[name="start"]`);
   if (startRects.length > 0) {
     startRects.forEach((rect) => {
-      // Use CSS variable directly
-      rect.style.fill = "var(--ui-success)";
-      rect.style.stroke = "var(--ui-success)";
+      // Use CSS variable with positive-2 variation
+      rect.style.fill = "var(--ui-success-positive-2)";
+      rect.style.stroke = "var(--ui-success-positive-2)";
       rect.style.strokeWidth = "2px";
     });
-    console.log(`[applyParticipantColors] Applied CSS variable --ui-success to ${startRects.length} rect(s) with name="start"`);
+    console.log(`[applyParticipantColors] Applied CSS variable --ui-success-positive-2 to ${startRects.length} rect(s) with name="start"`);
   } else {
     console.warn(`[applyParticipantColors] No rects found with name="start"`);
   }

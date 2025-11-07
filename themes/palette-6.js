@@ -33,6 +33,7 @@ const COMPONENT_DARK_GRAY = "#34495e";
 export const palette6 = {
     id: "palette-6",
     label: "Palette 6 — Atom One Dark",
+    theme: "dark",
     palette: {
         primary: PRIMARY,
         secondary: SECONDARY,

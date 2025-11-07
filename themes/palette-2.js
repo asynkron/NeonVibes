@@ -35,6 +35,7 @@ const COMPONENT_DARK_GRAY = "#34495e";
 export const palette2 = {
     id: "palette-2",
     label: "Palette 2 — Cosmic Magenta",
+    theme: "dark",
     palette: {
         primary: PRIMARY,
         secondary: SECONDARY,

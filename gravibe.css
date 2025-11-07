@@ -217,13 +217,13 @@ body {
 }
 
 .component-card {
-  background: var(--ui-surface-1);
-  border-radius: 8px;
-  padding: 1.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-  border: 1px solid var(--ui-border);
+    background: var(--ui-surface-1);
+    border-radius: 8px;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    border: 1px solid var(--ui-border);
 }
 
 .component-card header {
@@ -420,14 +420,13 @@ body {
 .sequence-diagram-section,
 .flame-chart-section,
 .component-diagram-section {
-  width: 100%;
-  background: var(--ui-surface-1);
-  border-radius: 12px;
-  border: 1px solid var(--ui-border);
-  box-shadow: var(--shadow-soft);
-  padding: clamp(1.5rem, 4vw, 2.25rem);
-  display: grid;
-  gap: clamp(1.25rem, 3vw, 2rem);
+    width: 100%;
+    background: var(--ui-surface-1);
+    border-radius: 8px;
+    border: 1px solid var(--ui-border);
+    padding: clamp(1.5rem, 4vw, 2.25rem);
+    display: grid;
+    gap: clamp(1.25rem, 3vw, 2rem);
 }
 
 .trace-header,

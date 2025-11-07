@@ -32,6 +32,7 @@ const COMPONENT_DARK_GRAY = "#34495e";
 export const palette15 = {
     id: "palette-15",
     label: "Palette 15 — Material Theme",
+    theme: "dark",
     palette: {
         primary: PRIMARY,
         secondary: SECONDARY,

@@ -33,6 +33,7 @@ const COMPONENT_DARK_GRAY = "#34495e";
 export const palette7 = {
     id: "palette-7",
     label: "Palette 7 — Gruvbox",
+    theme: "dark",
     palette: {
         primary: PRIMARY,
         secondary: SECONDARY,

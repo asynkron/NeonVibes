@@ -228,8 +228,25 @@ function generateComponentClassDefs(lines) {
   };
 
   // Generate classDef for each component kind
+  // Read CSS variable values (Mermaid needs actual color values, not CSS variables)
+  const rootStyles = getComputedStyle(document.documentElement);
+
   Object.entries(componentKindMap).forEach(([kind, paletteKey]) => {
-    const color = palette.components[paletteKey];
+    // Get color from CSS variable with positive-2 variation
+    const cssVar = `--component-${paletteKey}-positive-2`;
+    let color = rootStyles.getPropertyValue(cssVar).trim();
+
+    // Fallback to base CSS variable if positive-2 not set
+    if (!color) {
+      const baseCssVar = `--component-${paletteKey}`;
+      color = rootStyles.getPropertyValue(baseCssVar).trim();
+    }
+
+    // Fallback to palette if CSS variable not set
+    if (!color) {
+      color = palette.components[paletteKey];
+    }
+
     if (color) {
       const strokeColor = kind === "subcomponent"
         ? darkenColor(color, 0.7)
@@ -638,8 +655,7 @@ function applyStylingWithSubcomponents(lines, components, groups, calls, trace) 
       const componentSubgraphClassDefName = `component_subgraph_${componentId}`;
       const rootStyles = getComputedStyle(document.documentElement);
       const borderColor = rootStyles.getPropertyValue('--ui-border').trim() || '#3a3a3a';
-      // Get the component's fill color from palette
-      const palette = getCurrentPalette();
+      // Get the component's fill color from CSS variable
       const componentKindMap = {
         start: "start",
         endpoint: "endpoint",
@@ -653,7 +669,20 @@ function applyStylingWithSubcomponents(lines, components, groups, calls, trace) 
         databasestatement: "database-statement",
       };
       const paletteKey = componentKindMap[kind] || "service";
-      const fillColor = palette?.components?.[paletteKey] || '#c678dd';
+      // Read CSS variable value with positive-2 variation (Mermaid needs actual color value)
+      const cssVar = `--component-${paletteKey}-positive-2`;
+      let fillColor = rootStyles.getPropertyValue(cssVar).trim();
+
+      // Fallback to base CSS variable if positive-2 not set
+      if (!fillColor) {
+        const baseCssVar = `--component-${paletteKey}`;
+        fillColor = rootStyles.getPropertyValue(baseCssVar).trim();
+      }
+
+      // Final fallback
+      if (!fillColor) {
+        fillColor = '#c678dd';
+      }
 
       // Create classDef for component subgraph with rounded borders
       lines.push(`    classDef ${componentSubgraphClassDefName} fill:${fillColor},stroke:${borderColor},stroke-width:2px,rx:8px,ry:8px`);

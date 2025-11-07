@@ -34,6 +34,7 @@ const COMPONENT_DARK_GRAY = "#34495e";
 export const palette11 = {
     id: "palette-11",
     label: "Palette 11 — GitHub Light",
+    theme: "light",
     palette: {
         primary: PRIMARY,
         secondary: SECONDARY,

@@ -32,6 +32,7 @@ const COMPONENT_DARK_GRAY = "#00000080";
 export const palette5 = {
     id: "palette-5",
     label: "Palette 5 — Monokai",
+    theme: "dark",
     palette: {
         primary: PRIMARY,
         secondary: SECONDARY,

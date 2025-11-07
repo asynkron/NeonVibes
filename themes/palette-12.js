@@ -32,6 +32,7 @@ const COMPONENT_DARK_GRAY = "#34495e";
 export const palette12 = {
     id: "palette-12",
     label: "Palette 12 — Solarized Light",
+    theme: "light",
     palette: {
         primary: PRIMARY,
         secondary: SECONDARY,

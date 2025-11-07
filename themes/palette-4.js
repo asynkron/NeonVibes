@@ -38,6 +38,7 @@ const COMPONENT_DARK_GRAY = "#34495e";
 export const palette4 = {
     id: "palette-4",
     label: "Palette 4 — Light Mode",
+    theme: "light",
     palette: {
         primary: PRIMARY,
         secondary: SECONDARY,

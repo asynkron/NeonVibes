@@ -35,6 +35,7 @@ const COMPONENT_DARK_GRAY = "#34495e";
 export const palette1 = {
     id: "palette-1",
     label: "Palette 1 — Gravibe Sunrise",
+    theme: "dark",
     palette: {
         primary: PRIMARY,
         secondary: SECONDARY,

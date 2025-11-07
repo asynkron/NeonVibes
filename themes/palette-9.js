@@ -32,6 +32,7 @@ const COMPONENT_DARK_GRAY = "#34495e";
 export const palette9 = {
     id: "palette-9",
     label: "Palette 9 — Nord",
+    theme: "dark",
     palette: {
         primary: PRIMARY,
         secondary: SECONDARY,

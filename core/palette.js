@@ -4,6 +4,7 @@
  */
 
 import { colorRoles, colorPalettes } from "./config.js";
+import { hexToHsl, hslToHex } from "./colors.js";
 
 export const paletteState = {
     activeMapping: {},
@@ -29,6 +30,40 @@ function hexToRgb(hex) {
 
 function toCssVar(role) {
     return `--${role.replace(/([A-Z])/g, "-$1").toLowerCase()}`;
+}
+
+/**
+ * Generates color variations (lighter/darker) based on theme
+ * @param {string} hex - Base hex color
+ * @param {string} theme - "light" or "dark"
+ * @param {number} steps - Number of steps (positive = lighter for light mode/darker for dark mode)
+ * @param {number} stepSize - Amount to adjust per step (default 10)
+ * @returns {string} Adjusted hex color
+ */
+function generateColorVariation(hex, theme, steps, stepSize = 10) {
+    if (!hex || !hex.startsWith("#")) {
+        return hex;
+    }
+
+    const hsl = hexToHsl(hex);
+    if (!hsl) {
+        return hex;
+    }
+
+    let adjustedLightness = hsl.l;
+    
+    if (theme === "light") {
+        // For light mode: positive = lighter (increase lightness), negative = darker (decrease lightness)
+        adjustedLightness = hsl.l + (steps * stepSize);
+    } else {
+        // For dark mode: positive = darker (decrease lightness), negative = lighter (increase lightness)
+        adjustedLightness = hsl.l - (steps * stepSize);
+    }
+
+    // Clamp lightness between 0 and 100
+    adjustedLightness = Math.max(0, Math.min(100, adjustedLightness));
+
+    return hslToHex(hsl.h, hsl.s, adjustedLightness);
 }
 
 export function resolveColor(colorRef) {
@@ -177,6 +212,49 @@ export function applyPalette(palette) {
     paletteState.activeId = palette.id;
 
     const root = document.documentElement;
+    const theme = palette.theme || "dark";
+    
+    // Generate color variations for palette colors
+    const paletteColorMap = {
+        primary: "primary",
+        secondary: "secondary",
+        tertiary: "tertiary",
+        quaternary: "quaternary",
+        quinary: "quinary",
+        senary: "senary",
+    };
+
+    // Generate variations for each palette color
+    if (palette.palette) {
+        Object.entries(paletteColorMap).forEach(([key, name]) => {
+            const baseColor = palette.palette[key];
+            if (baseColor && baseColor.startsWith("#")) {
+                // Generate positive variations (lighter for dark mode, darker for light mode)
+                const positive3 = generateColorVariation(baseColor, theme, 3, 10);
+                const positive2 = generateColorVariation(baseColor, theme, 2, 10);
+                const positive1 = generateColorVariation(baseColor, theme, 1, 10);
+                
+                // Base color
+                const base = baseColor;
+                
+                // Generate negative variations (darker for dark mode, lighter for light mode)
+                const negative1 = generateColorVariation(baseColor, theme, -1, 10);
+                const negative2 = generateColorVariation(baseColor, theme, -2, 10);
+                const negative3 = generateColorVariation(baseColor, theme, -3, 10);
+
+                // Set CSS variables
+                root.style.setProperty(`--${name}-positive-3`, positive3);
+                root.style.setProperty(`--${name}-positive-2`, positive2);
+                root.style.setProperty(`--${name}-positive-1`, positive1);
+                root.style.setProperty(`--${name}`, base);
+                root.style.setProperty(`--${name}-negative-1`, negative1);
+                root.style.setProperty(`--${name}-negative-2`, negative2);
+                root.style.setProperty(`--${name}-negative-3`, negative3);
+            }
+        });
+    }
+
+    // Set base accent colors for backward compatibility
     colorRoles.forEach((role) => {
         const cssVar = toCssVar(role);
         const rgbVar = `${cssVar}-rgb`;
@@ -188,26 +266,79 @@ export function applyPalette(palette) {
         }
     });
 
-    // Set CSS variables for logging colors
+    // Set CSS variables for logging colors with variations
     if (palette.logging) {
         Object.entries(palette.logging).forEach(([level, color]) => {
-            const cssVar = `--logging-${level}`;
-            const rgbVar = `--logging-${level}-rgb`;
-            const { r, g, b } = hexToRgb(color);
-            root.style.setProperty(cssVar, color);
-            root.style.setProperty(rgbVar, `${r} ${g} ${b}`);
+            if (color && color.startsWith("#")) {
+                // Generate variations
+                const positive3 = generateColorVariation(color, theme, 3, 10);
+                const positive2 = generateColorVariation(color, theme, 2, 10);
+                const positive1 = generateColorVariation(color, theme, 1, 10);
+                const base = color;
+                const negative1 = generateColorVariation(color, theme, -1, 10);
+                const negative2 = generateColorVariation(color, theme, -2, 10);
+                const negative3 = generateColorVariation(color, theme, -3, 10);
+
+                // Set CSS variables
+                root.style.setProperty(`--logging-${level}-positive-3`, positive3);
+                root.style.setProperty(`--logging-${level}-positive-2`, positive2);
+                root.style.setProperty(`--logging-${level}-positive-1`, positive1);
+                root.style.setProperty(`--logging-${level}`, base);
+                root.style.setProperty(`--logging-${level}-negative-1`, negative1);
+                root.style.setProperty(`--logging-${level}-negative-2`, negative2);
+                root.style.setProperty(`--logging-${level}-negative-3`, negative3);
+            } else {
+                // Non-hex colors (fallback)
+                const cssVar = `--logging-${level}`;
+                root.style.setProperty(cssVar, color);
+            }
+            
+            // Set RGB variant for base color
+            if (color && color.startsWith("#")) {
+                try {
+                    const { r, g, b } = hexToRgb(color);
+                    const rgbVar = `--logging-${level}-rgb`;
+                    root.style.setProperty(rgbVar, `${r} ${g} ${b}`);
+                } catch (e) {
+                    // Skip rgb variant if color conversion fails
+                }
+            }
         });
     }
 
-    // Set CSS variables for UI colors
+    // Set CSS variables for UI colors with variations
     if (palette.ui) {
         Object.entries(palette.ui).forEach(([key, color]) => {
-            const cssVar = `--ui-${key}`;
-            root.style.setProperty(cssVar, color);
+            // Skip variations for non-color values like "highlight" (rgba)
+            const skipVariations = key === "highlight" || !color.startsWith("#");
+            
+            if (!skipVariations && color && color.startsWith("#")) {
+                // Generate variations
+                const positive3 = generateColorVariation(color, theme, 3, 10);
+                const positive2 = generateColorVariation(color, theme, 2, 10);
+                const positive1 = generateColorVariation(color, theme, 1, 10);
+                const base = color;
+                const negative1 = generateColorVariation(color, theme, -1, 10);
+                const negative2 = generateColorVariation(color, theme, -2, 10);
+                const negative3 = generateColorVariation(color, theme, -3, 10);
+
+                // Set CSS variables
+                root.style.setProperty(`--ui-${key}-positive-3`, positive3);
+                root.style.setProperty(`--ui-${key}-positive-2`, positive2);
+                root.style.setProperty(`--ui-${key}-positive-1`, positive1);
+                root.style.setProperty(`--ui-${key}`, base);
+                root.style.setProperty(`--ui-${key}-negative-1`, negative1);
+                root.style.setProperty(`--ui-${key}-negative-2`, negative2);
+                root.style.setProperty(`--ui-${key}-negative-3`, negative3);
+            } else {
+                // Non-hex colors or skip variations
+                const cssVar = `--ui-${key}`;
+                root.style.setProperty(cssVar, color);
+            }
             
             // For rgba colors like highlight, don't generate rgb variant
             // For hex colors, generate rgb variant
-            if (color.startsWith("#")) {
+            if (color && color.startsWith("#")) {
                 try {
                     const { r, g, b } = hexToRgb(color);
                     const rgbVar = `--ui-${key}-rgb`;
@@ -219,11 +350,32 @@ export function applyPalette(palette) {
         });
     }
 
-    // Set CSS variables for component colors
+    // Set CSS variables for component colors with variations
     if (palette.components) {
         Object.entries(palette.components).forEach(([key, color]) => {
-            const cssVar = `--component-${key}`;
-            root.style.setProperty(cssVar, color);
+            if (color && color.startsWith("#")) {
+                // Generate variations
+                const positive3 = generateColorVariation(color, theme, 3, 10);
+                const positive2 = generateColorVariation(color, theme, 2, 10);
+                const positive1 = generateColorVariation(color, theme, 1, 10);
+                const base = color;
+                const negative1 = generateColorVariation(color, theme, -1, 10);
+                const negative2 = generateColorVariation(color, theme, -2, 10);
+                const negative3 = generateColorVariation(color, theme, -3, 10);
+
+                // Set CSS variables
+                root.style.setProperty(`--component-${key}-positive-3`, positive3);
+                root.style.setProperty(`--component-${key}-positive-2`, positive2);
+                root.style.setProperty(`--component-${key}-positive-1`, positive1);
+                root.style.setProperty(`--component-${key}`, base);
+                root.style.setProperty(`--component-${key}-negative-1`, negative1);
+                root.style.setProperty(`--component-${key}-negative-2`, negative2);
+                root.style.setProperty(`--component-${key}-negative-3`, negative3);
+            } else {
+                // Non-hex colors (fallback)
+                const cssVar = `--component-${key}`;
+                root.style.setProperty(cssVar, color);
+            }
             
             if (color && color.startsWith("#")) {
                 try {
