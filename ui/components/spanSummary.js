@@ -95,11 +95,13 @@ export function createSpanBar(trace, node, timeWindow, offsets, serviceCssVar, s
   });
   bar.append(duration);
 
-  // Add markers for logs and events
-  const markers = renderSpanMarkers(node, trace, timeWindow);
-  if (markers) {
-    bar.append(markers);
-  }
+  // Store marker data for lazy creation on hover
+  // Don't create markers upfront - they'll be created when hovering over the span summary
+  bar._markerData = { node, trace, timeWindow };
+  
+  // Create empty markers container that will be populated on hover
+  const markersContainer = h('div', { className: 'trace-span__markers' });
+  bar.append(markersContainer);
 
   // Add runline-x elements that show parent span duration, interrupted by child spans
   if (showRunlineX) {

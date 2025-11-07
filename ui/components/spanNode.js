@@ -8,7 +8,7 @@ import { onClickStop } from "../../core/events.js";
 import { pruneDescendantState } from "../../core/stateManager.js";
 import { renderSpanSummary } from "./spanSummary.js";
 import { renderSpanLogs } from "./spanLogs.js";
-import { renderSpanDetails, updateRunlineYHeights } from "../trace.js";
+import { renderSpanDetails, updateRunlineYHeights, renderSpanMarkers } from "../trace.js";
 
 /**
  * Creates a span container element with proper classes and attributes.
@@ -171,6 +171,46 @@ export function setupSpanInteractions(trace, node, state, container, summary, ex
 }
 
 /**
+ * Sets up lazy marker creation on hover for span summaries.
+ * Markers are only created when hovering over the span summary.
+ * @param {HTMLElement} summary - The span summary element
+ * @param {HTMLElement} timeline - The timeline button element
+ */
+function setupLazyMarkers(summary, timeline) {
+  const bar = timeline.querySelector('.trace-span__bar');
+  if (!bar || !bar._markerData) {
+    return;
+  }
+
+  const markersContainer = bar.querySelector('.trace-span__markers');
+  if (!markersContainer) {
+    return;
+  }
+
+  const { node, trace, timeWindow } = bar._markerData;
+  let markersElement = null;
+
+  summary.addEventListener('mouseenter', () => {
+    // Create markers lazily on first hover
+    if (!markersElement && markersContainer.childElementCount === 0) {
+      markersElement = renderSpanMarkers(node, trace, timeWindow);
+      if (markersElement) {
+        markersContainer.appendChild(markersElement);
+      }
+    }
+  });
+
+  summary.addEventListener('mouseleave', () => {
+    // Remove markers on mouseleave to save memory
+    // They'll be recreated on next hover if needed
+    if (markersElement && markersElement.parentNode) {
+      markersElement.parentNode.removeChild(markersElement);
+      markersElement = null;
+    }
+  });
+}
+
+/**
  * Renders a complete span node with summary, details, children, and interactions.
  * @param {import("../trace.js").TraceModel} trace - The trace model
  * @param {import("../trace.js").TraceSpanNode} node - The span node
@@ -221,6 +261,9 @@ export function renderSpanNode(trace, node, state, isLastChild = false, parentDe
 
   // Set up interactions
   setupSpanInteractions(trace, node, state, container, summary, expander, service, timeline, childrenContainer, detailSections, hasDetails);
+
+  // Set up lazy marker creation on hover
+  setupLazyMarkers(summary, timeline);
 
   return container;
 }

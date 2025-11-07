@@ -22,6 +22,9 @@ export function createLogRow(logRow, expandedLogIds) {
     dataset: { rowId: logRow.id }
   });
 
+  // Store logRow data for lazy creation of metaSection
+  logElement._logRow = logRow;
+
   const expander = h('button', {
     type: 'button',
     className: 'log-row__expander',
@@ -46,13 +49,14 @@ export function createLogRow(logRow, expandedLogIds) {
     expanderWrapper, timestamp, severity, message
   );
 
-  const metaSection = createMetaSection(logRow);
-  if (!isOpen) {
-    metaSection.style.display = 'none';
-  }
-
   logElement.appendChild(summary);
-  logElement.appendChild(metaSection);
+
+  // Only create metaSection if already expanded, otherwise create lazily on expand
+  let metaSection = null;
+  if (isOpen) {
+    metaSection = createMetaSection(logRow);
+    logElement.appendChild(metaSection);
+  }
 
   return { element: logElement, expander, summary, metaSection };
 }
@@ -62,22 +66,37 @@ export function createLogRow(logRow, expandedLogIds) {
  * @param {import("../logs.js").LogRow} logRow - The log row data
  * @param {Set<string>} expandedLogIds - Set of expanded log IDs
  * @param {HTMLElement} logElement - The log row element
- * @param {HTMLElement} metaSection - The meta section element
+ * @param {{value: HTMLElement|null}} metaSectionRef - Mutable reference to the meta section element (created lazily)
  * @param {HTMLElement} expander - The expander button
  * @returns {Function} Toggle handler function
  */
-export function createLogToggleHandler(logRow, expandedLogIds, logElement, metaSection, expander) {
+export function createLogToggleHandler(logRow, expandedLogIds, logElement, metaSectionRef, expander) {
   return () => {
     const wasOpen = expandedLogIds.has(logRow.id);
     if (wasOpen) {
       expandedLogIds.delete(logRow.id);
       logElement.classList.remove('log-row--open');
-      metaSection.style.display = 'none';
+      
+      // Remove metaSection from DOM when collapsing
+      if (metaSectionRef.value && metaSectionRef.value.parentNode) {
+        metaSectionRef.value.parentNode.removeChild(metaSectionRef.value);
+        metaSectionRef.value = null;
+      }
+      
       setAttrs(expander, { 'aria-expanded': 'false' });
     } else {
       expandedLogIds.add(logRow.id);
       logElement.classList.add('log-row--open');
-      metaSection.style.display = '';
+      
+      // Create metaSection lazily on expand if it doesn't exist
+      if (!metaSectionRef.value || !metaSectionRef.value.parentNode) {
+        const logRowData = logElement._logRow || logRow;
+        metaSectionRef.value = createMetaSection(logRowData);
+        logElement.appendChild(metaSectionRef.value);
+      } else {
+        metaSectionRef.value.style.display = '';
+      }
+      
       setAttrs(expander, { 'aria-expanded': 'true' });
     }
   };
@@ -111,7 +130,10 @@ export function renderSpanLogs(node) {
 
   sortedLogs.forEach((logRow) => {
     const { element: logElement, expander, summary, metaSection } = createLogRow(logRow, expandedLogIds);
-    const toggleHandler = createLogToggleHandler(logRow, expandedLogIds, logElement, metaSection, expander);
+    
+    // Create a mutable reference to metaSection so the handler can update it
+    const metaSectionRef = { value: metaSection };
+    const toggleHandler = createLogToggleHandler(logRow, expandedLogIds, logElement, metaSectionRef, expander);
 
     summary.addEventListener('click', (e) => {
       // Don't toggle if clicking the expander button itself

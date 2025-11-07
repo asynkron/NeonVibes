@@ -888,12 +888,13 @@ function positionTooltip(tooltip, event, skipTransition = false) {
 
 /**
  * Sets up hover event handlers for a marker.
- * @param {HTMLElement} markerElement - The marker element
- * @param {HTMLElement} tooltip - The tooltip element
+ * Creates tooltip lazily on hover.
+ * @param {HTMLElement} markerElement - The marker element (must have _markerData property)
  * @param {Object} currentTooltip - Reference to current tooltip (mutable object)
  */
-function setupMarkerHover(markerElement, tooltip, currentTooltip) {
+function setupMarkerHover(markerElement, currentTooltip) {
   let hideTimeout = null;
+  let tooltip = null;
 
   markerElement.addEventListener("mouseenter", (e) => {
     // Cancel any pending hide timeout
@@ -906,8 +907,25 @@ function setupMarkerHover(markerElement, tooltip, currentTooltip) {
     if (currentTooltip.value && currentTooltip.value !== tooltip) {
       currentTooltip.value.classList.remove("show");
       setTimeout(() => {
-        currentTooltip.value.style.display = "none";
+        if (currentTooltip.value && currentTooltip.value.parentNode) {
+          currentTooltip.value.parentNode.removeChild(currentTooltip.value);
+        }
       }, 300);
+    }
+
+    // Create tooltip lazily on first hover
+    if (!tooltip) {
+      const markerData = markerElement._markerData;
+      if (!markerData) {
+        console.warn("[setupMarkerHover] Marker element missing _markerData");
+        return;
+      }
+      tooltip = createMarkerTooltip(markerData);
+      tooltip.style.display = "none";
+      tooltip.style.left = "0px";
+      tooltip.style.top = "0px";
+      tooltip.style.transform = "translateX(-50%) translateY(-4px)";
+      document.body.appendChild(tooltip);
     }
 
     // Set display first so we can measure
@@ -930,6 +948,8 @@ function setupMarkerHover(markerElement, tooltip, currentTooltip) {
   });
 
   markerElement.addEventListener("mouseleave", () => {
+    if (!tooltip) return;
+
     tooltip.classList.remove("show");
 
     // Clear any existing timeout
@@ -947,10 +967,11 @@ function setupMarkerHover(markerElement, tooltip, currentTooltip) {
       currentTooltip.value = null;
     }
 
-    // Wait for fade out before hiding
+    // Wait for fade out before removing from DOM
     hideTimeout = setTimeout(() => {
-      if (!markerElement.matches(":hover")) {
-        tooltip.style.display = "none";
+      if (!markerElement.matches(":hover") && tooltip && tooltip.parentNode) {
+        tooltip.parentNode.removeChild(tooltip);
+        tooltip = null;
       }
       hideTimeout = null;
     }, 300);
@@ -1021,24 +1042,11 @@ export function renderSpanMarkers(node, trace, timeWindow = { start: 0, end: 100
     // Create marker element
     const markerElement = createSpanMarker(marker, positionPercent);
 
-    // Create tooltip
-    const tooltip = createMarkerTooltip(marker);
-    tooltip.style.display = "none";
-    tooltip.style.left = "0px";
-    tooltip.style.top = "0px";
-    tooltip.style.transform = "translateX(-50%) translateY(-4px)";
-    document.body.appendChild(tooltip);
-    markerElement.dataset.tooltipId = `tooltip-${Date.now()}-${Math.random()}`;
+    // Store marker data on the element for lazy tooltip creation
+    markerElement._markerData = marker;
 
-    // Setup hover handlers
-    setupMarkerHover(markerElement, tooltip, currentTooltip);
-
-    // Clean up tooltip when marker is removed
-    markerElement._cleanupTooltip = () => {
-      if (tooltip.parentNode) {
-        tooltip.parentNode.removeChild(tooltip);
-      }
-    };
+    // Setup hover handlers (tooltip will be created on hover)
+    setupMarkerHover(markerElement, currentTooltip);
 
     container.append(markerElement);
   });
