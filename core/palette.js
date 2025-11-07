@@ -37,7 +37,7 @@ function mixColorTowardsSurface(hex, surfaceHex, steps, stepSize = 2.5) {
 
     const colorRgb = hexToRgb(hex);
     const surfaceRgb = hexToRgb(surfaceHex);
-    
+
     if (!colorRgb || !surfaceRgb) {
         return hex;
     }
@@ -77,7 +77,7 @@ function generateColorVariation(hex, theme, steps, stepSize = 2.5) {
     }
 
     let adjustedLightness = hsl.l;
-    
+
     if (theme === "light") {
         // For light mode: positive = lighter (increase lightness), negative = darker (decrease lightness)
         adjustedLightness = hsl.l + (steps * stepSize);
@@ -129,7 +129,7 @@ export function colorWithAlpha(colorRef, alpha) {
 
 function buildPaletteMapping(palette) {
     const mapping = {};
-    
+
     // Map palette colors (primary, secondary, etc.) to accent roles for backward compatibility
     if (palette.palette) {
         const paletteColorMap = {
@@ -140,21 +140,21 @@ function buildPaletteMapping(palette) {
             quinary: "accentQuinary",
             senary: "accentSenary",
         };
-        
+
         Object.entries(paletteColorMap).forEach(([key, role]) => {
             if (palette.palette[key]) {
                 mapping[role] = palette.palette[key];
             }
         });
     }
-    
+
     // Map logging colors
     if (palette.logging) {
         Object.entries(palette.logging).forEach(([level, color]) => {
             mapping[`logging${level.charAt(0).toUpperCase() + level.slice(1)}`] = color;
         });
     }
-    
+
     // Map UI colors
     if (palette.ui) {
         Object.entries(palette.ui).forEach(([key, color]) => {
@@ -163,7 +163,7 @@ function buildPaletteMapping(palette) {
             mapping[`ui${camelKey.charAt(0).toUpperCase() + camelKey.slice(1)}`] = color;
         });
     }
-    
+
     // Backward compatibility: if palette has old 'colors' array, map by index
     if (!palette.palette && palette.colors && Array.isArray(palette.colors)) {
         colorRoles.forEach((role, index) => {
@@ -171,7 +171,7 @@ function buildPaletteMapping(palette) {
             mapping[role] = color;
         });
     }
-    
+
     return mapping;
 }
 
@@ -239,10 +239,10 @@ export function applyPalette(palette) {
 
     const root = document.documentElement;
     const theme = palette.theme || "dark";
-    
+
     // Get surface color for mixing positive variations
     const surfaceColor = palette.ui?.surface || "#1e2129";
-    
+
     // Generate color variations for palette colors
     const paletteColorMap = {
         primary: "primary",
@@ -262,10 +262,10 @@ export function applyPalette(palette) {
                 const positive3 = mixColorTowardsSurface(baseColor, surfaceColor, 3, 2.5);
                 const positive2 = mixColorTowardsSurface(baseColor, surfaceColor, 2, 2.5);
                 const positive1 = mixColorTowardsSurface(baseColor, surfaceColor, 1, 2.5);
-                
+
                 // Base color
                 const base = baseColor;
-                
+
                 // Generate negative variations (darker for dark mode, lighter for light mode)
                 const negative1 = generateColorVariation(baseColor, theme, -1, 2.5);
                 const negative2 = generateColorVariation(baseColor, theme, -2, 2.5);
@@ -341,7 +341,7 @@ export function applyPalette(palette) {
                 const cssVar = `--logging-${level}`;
                 root.style.setProperty(cssVar, color);
             }
-            
+
             // Set RGB variant for base color
             if (color && color.startsWith("#")) {
                 try {
@@ -360,11 +360,11 @@ export function applyPalette(palette) {
         Object.entries(palette.ui).forEach(([key, color]) => {
             // Skip variations for non-color values like "highlight" (rgba)
             const skipVariations = key === "highlight" || !color.startsWith("#");
-            
+
             if (!skipVariations && color && color.startsWith("#")) {
                 // Declare variables in outer scope
                 let positive3, positive2, positive1, base, negative1, negative2, negative3;
-                
+
                 // For surface, use normal lightness adjustment for positive variations
                 // For all other UI colors, mix towards surface color for positive variations
                 if (key === "surface") {
@@ -400,7 +400,7 @@ export function applyPalette(palette) {
                 const cssVar = `--ui-${key}`;
                 root.style.setProperty(cssVar, color);
             }
-            
+
             // For rgba colors like highlight, don't generate rgb variant
             // For hex colors, generate rgb variant
             if (color && color.startsWith("#")) {
@@ -441,7 +441,7 @@ export function applyPalette(palette) {
                 const cssVar = `--component-${key}`;
                 root.style.setProperty(cssVar, color);
             }
-            
+
             if (color && color.startsWith("#")) {
                 try {
                     const { r, g, b } = hexToRgb(color);
