@@ -195,16 +195,16 @@ function renderParticipants(lines, trace) {
     console.log(`[renderParticipants] Found ${groupComponents.length} components for group ${groupName}`);
 
     if (groupComponents.length > 0) {
-      // Use surface-3 color for group boxes
+      // Use surface-2 color for group boxes
       const rootStyles = getComputedStyle(document.documentElement);
-      const surface3 = rootStyles.getPropertyValue('--ui-surface-3').trim() || '#12161e';
-      const rgb = hexToRgb(surface3);
+      const surface2 = rootStyles.getPropertyValue('--surface-2').trim() || rootStyles.getPropertyValue('--ui-surface-2').trim() || '#1e2129';
+      const rgb = hexToRgb(surface2);
 
       let boxColor = "";
       if (rgb) {
         // Use rgba format for Mermaid box syntax
         boxColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 1.0)`;
-        console.log(`[renderParticipants] Box color for group ${groupName}: ${boxColor} (using surface-3)`);
+        console.log(`[renderParticipants] Box color for group ${groupName}: ${boxColor} (using surface-2)`);
       }
 
       // Mermaid box syntax: box [color] name
@@ -353,6 +353,25 @@ function applyParticipantColors(host, trace) {
       }
     }
   });
+
+  // Apply special color to "Start" participant using palette.ui.success
+  const palette = getCurrentPalette();
+  if (palette && palette.ui && palette.ui.success) {
+    const startColor = palette.ui.success;
+    const startRects = mermaidSvg.querySelectorAll(`rect[name="start"]`);
+    if (startRects.length > 0) {
+      startRects.forEach((rect) => {
+        rect.style.fill = startColor;
+        rect.style.stroke = startColor;
+        rect.style.strokeWidth = "2px";
+      });
+      console.log(`[applyParticipantColors] Applied success color to ${startRects.length} rect(s) with name="start" (color: ${startColor})`);
+    } else {
+      console.warn(`[applyParticipantColors] No rects found with name="start"`);
+    }
+  } else {
+    console.warn(`[applyParticipantColors] Could not get palette.ui.success color`);
+  }
 }
 
 /**
