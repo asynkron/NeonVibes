@@ -29,9 +29,11 @@ import { palette17 } from "./palette-17.js";
 import { palette18 } from "./palette-18.js";
 import { palette19 } from "./palette-19.js";
 import { palette20 } from "./palette-20.js";
+import { palette21 } from "./palette-21.js";
+import { palette22 } from "./palette-22.js";
 
 // Export individual palettes
-export { palette1, palette2, palette3, palette4, palette5, palette6, palette7, palette8, palette9, palette10, palette11, palette12, palette13, palette14, palette15, palette16, palette17, palette18, palette19, palette20 };
+export { palette1, palette2, palette3, palette4, palette5, palette6, palette7, palette8, palette9, palette10, palette11, palette12, palette13, palette14, palette15, palette16, palette17, palette18, palette19, palette20, palette21, palette22 };
 
 // Array of all palettes for easy iteration - automatically includes all palettes
 // When adding new palettes, just add them to this array!
@@ -55,7 +57,9 @@ export const colorPalettes = [
     palette17,
     palette18,
     palette19,
-    palette20
+    palette20,
+    palette21,
+    palette22
 ];
 
 // Log for debugging
