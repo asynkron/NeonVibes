@@ -1,5 +1,5 @@
 /**
- * Gravibe Color Helper
+ * NeonVibes Color Helper
  * Generates neon colors based on string hashing for consistent color assignment.
  */
 

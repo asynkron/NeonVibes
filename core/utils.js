@@ -1,5 +1,5 @@
 /*
- * Gravibe Utilities
+ * NeonVibes Utilities
  * Helper functions for data manipulation and live dataset management
  */
 

@@ -1,5 +1,5 @@
 /**
- * Gravibe Sequence Diagram Generator
+ * NeonVibes Sequence Diagram Generator
  * Generates Mermaid sequence diagrams from trace metamodel data.
  * Based on TraceLens.Server/generators/PlantUml/SequenceGenerator.cs
  */

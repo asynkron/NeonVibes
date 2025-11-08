@@ -1,5 +1,5 @@
 /*
- * Gravibe Components Management
+ * NeonVibes Components Management
  * Component registry, setup, and initialization
  */
 
@@ -134,7 +134,7 @@ export function setupComponent(article) {
     componentRegistry.add(runRender);
 }
 
-export async function initGravibe() {
+export async function initNeonVibes() {
     const defaultPalette =
         colorPalettes.find((palette) => palette.id === paletteState.activeId) ?? colorPalettes[0];
 
@@ -190,8 +190,8 @@ export async function initGravibe() {
 
     if (traceHost) {
         const rerenderTrace = initTraceViewer(traceHost, sampleTraceSpans);
-        console.log("[initGravibe] Trace viewer initialized, component:", rerenderTrace);
-        console.log("[initGravibe] Component has update method:", typeof rerenderTrace?.update === "function");
+        console.log("[initNeonVibes] Trace viewer initialized, component:", rerenderTrace);
+        console.log("[initNeonVibes] Component has update method:", typeof rerenderTrace?.update === "function");
         componentRegistry.add(rerenderTrace);
     }
 }

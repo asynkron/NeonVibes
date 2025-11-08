@@ -1,5 +1,5 @@
 /**
- * Gravibe Log Console Toolkit
+ * NeonVibes Log Console Toolkit
  * Provides lightweight data model helpers and rendering utilities inspired by
  * the OpenTelemetry Logs v1 protobuf definition. The goal is to keep the
  * structure mappable from the proto payloads while remaining ergonomic in JS.

@@ -1,5 +1,5 @@
 /**
- * Gravibe Meta Model
+ * NeonVibes Meta Model
  * Provides extractors and metadata extraction for OpenTelemetry spans.
  * Mirrors the TraceLens.Core/Model structure for groups and components.
  */

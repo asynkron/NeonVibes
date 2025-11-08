@@ -1,5 +1,5 @@
 /**
- * Gravibe Sample Data
+ * NeonVibes Sample Data
  * Provides sample trace spans and log rows for development and demos.
  */
 
@@ -342,7 +342,7 @@ export const sampleLogRows = [
         traceId: fakeTraceId("boot001a"),
         spanId: fakeSpanId("a1f7"),
         attributes: [
-            createLogAttribute("resource.node", anyValues.string("gravibe-ingest-03")),
+            createLogAttribute("resource.node", anyValues.string("neonVibes-ingest-03")),
             createLogAttribute("worker.id", anyValues.int(42)),
             createLogAttribute("job.name", anyValues.string("daily-compaction")),
             createLogAttribute("region", anyValues.string("eu-central")),
@@ -444,7 +444,7 @@ export const sampleLogRows = [
         flags: 0x1,
         droppedAttributesCount: 2,
         attributes: [
-            createLogAttribute("pipeline.id", anyValues.string("gravibe-stream-01")),
+            createLogAttribute("pipeline.id", anyValues.string("neonVibes-stream-01")),
             createLogAttribute("error.message", anyValues.string("out of memory")),
             createLogAttribute("error.code", anyValues.string("OOM-7")),
             createLogAttribute("restart.count", anyValues.int(5)),

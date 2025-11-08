@@ -1,5 +1,5 @@
 /*
- * Gravibe Neon Chart Kit
+ * NeonVibes Neon Chart Kit
  * Each component exposes multiple datasets and detailed comments so AI agents can remix the visuals quickly.
  */
 
@@ -32,7 +32,7 @@ const DEFAULT_BACKGROUND_EFFECT = "solid";
 // We keep a registry of renderer callbacks so palette swaps can re-render everything in place.
 const componentRegistry = new Set();
 
-console.log("[gravibe.js] Module loaded, componentRegistry created");
+console.log("[neonVibes.js] Module loaded, componentRegistry created");
 
 // Track the current ECharts renderer so we can recreate instances when toggled.
 const rendererState = { mode: DEFAULT_RENDERER_MODE };
@@ -54,7 +54,7 @@ const backgroundState = {
 const chartOutlineColor = "rgba(15, 23, 42, 0.95)";
 
 function rerenderAllComponents() {
-  console.log("[gravibe.js rerenderAllComponents] Called, components in registry:", componentRegistry.size);
+  console.log("[neonVibes.js rerenderAllComponents] Called, components in registry:", componentRegistry.size);
   // Use double requestAnimationFrame to ensure CSS variables are fully applied
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
@@ -68,21 +68,21 @@ function rerenderAllComponents() {
           // Support both old-style functions and new-style objects with update() method
           if (typeof component === "function") {
             // Legacy: call as function (for chart components)
-            console.log(`[gravibe.js rerenderAllComponents] Component ${componentIndex}: calling as function`);
+            console.log(`[neonVibes.js rerenderAllComponents] Component ${componentIndex}: calling as function`);
             component();
           } else if (component && typeof component.update === "function") {
             // New style: call update() method
-            console.log(`[gravibe.js rerenderAllComponents] Component ${componentIndex}: calling update() method`);
+            console.log(`[neonVibes.js rerenderAllComponents] Component ${componentIndex}: calling update() method`);
             component.update();
           } else if (component && typeof component.render === "function") {
             // Fallback: call render() if update() is not available
-            console.log(`[gravibe.js rerenderAllComponents] Component ${componentIndex}: calling render() method`);
+            console.log(`[neonVibes.js rerenderAllComponents] Component ${componentIndex}: calling render() method`);
             component.render();
           } else {
-            console.warn(`[gravibe.js rerenderAllComponents] Component ${componentIndex}: unknown type`, typeof component, component);
+            console.warn(`[neonVibes.js rerenderAllComponents] Component ${componentIndex}: unknown type`, typeof component, component);
           }
     } catch (error) {
-          console.error(`[gravibe.js rerenderAllComponents] Component ${componentIndex}: Failed to update`, error);
+          console.error(`[neonVibes.js rerenderAllComponents] Component ${componentIndex}: Failed to update`, error);
     }
       });
     });
@@ -1318,16 +1318,16 @@ function initPaletteSelector() {
     return;
   }
 
-  console.log("[gravibe.js initGravibe] Loading palettes:", colorPalettes.length, "palettes found");
+  console.log("[neonVibes.js initNeonVibes] Loading palettes:", colorPalettes.length, "palettes found");
   paletteSelect.innerHTML = "";
   colorPalettes.forEach((palette) => {
-    console.log("[gravibe.js initGravibe] Adding palette option:", palette.id, palette.label);
+    console.log("[neonVibes.js initNeonVibes] Adding palette option:", palette.id, palette.label);
     const option = document.createElement("option");
     option.value = palette.id;
     option.textContent = palette.label;
     paletteSelect.append(option);
   });
-  console.log("[gravibe.js initGravibe] Palette dropdown populated with", paletteSelect.options.length, "options");
+  console.log("[neonVibes.js initNeonVibes] Palette dropdown populated with", paletteSelect.options.length, "options");
 
   if (paletteState.activeId) {
     paletteSelect.value = paletteState.activeId;
@@ -1336,7 +1336,7 @@ function initPaletteSelector() {
   paletteSelect.addEventListener("change", (event) => {
     const selected = colorPalettes.find((palette) => palette.id === event.target.value);
     if (selected) {
-      console.log("[gravibe.js] Palette select changed to:", selected.id);
+      console.log("[neonVibes.js] Palette select changed to:", selected.id);
       applyPalette(selected);
     }
   });
@@ -1364,14 +1364,14 @@ async function loadTraceData() {
       const virtualLogs = spans.flatMap(span => createVirtualSpanLogs(span));
       logs = [...logs, ...virtualLogs];
 
-      console.log("[gravibe.js initGravibe] Loaded sample1.json:", spans.length, "spans,", logs.length, "logs");
+      console.log("[neonVibes.js initNeonVibes] Loaded sample1.json:", spans.length, "spans,", logs.length, "logs");
     } else {
-      console.log("[gravibe.js initGravibe] sample1.json not found (status:", response.status, "), using sample data");
+      console.log("[neonVibes.js initNeonVibes] sample1.json not found (status:", response.status, "), using sample data");
       const allLogRows = await appendLogsFromSpans(sampleTraceSpans);
       logs = allLogRows;
     }
   } catch (error) {
-    console.log("[gravibe.js initGravibe] Failed to load sample1.json, using sample data:", error);
+    console.log("[neonVibes.js initNeonVibes] Failed to load sample1.json, using sample data:", error);
     const allLogRows = await appendLogsFromSpans(sampleTraceSpans);
     logs = allLogRows;
   }
@@ -1404,45 +1404,45 @@ async function initTraceComponents(spans, logs) {
 
   if (traceHost) {
     const rerenderTrace = initTraceViewer(traceHost, spans, logs);
-    console.log("[gravibe.js initGravibe] Trace viewer initialized, component:", rerenderTrace);
-    console.log("[gravibe.js initGravibe] Component has update method:", typeof rerenderTrace?.update === "function");
+    console.log("[neonVibes.js initNeonVibes] Trace viewer initialized, component:", rerenderTrace);
+    console.log("[neonVibes.js initNeonVibes] Component has update method:", typeof rerenderTrace?.update === "function");
     componentRegistry.add(rerenderTrace);
   }
 
   if (sequenceDiagramHost) {
     const { initSequenceDiagram } = await import("./ui/sequenceDiagram.js");
     const rerenderSequence = initSequenceDiagram(sequenceDiagramHost, spans);
-    console.log("[gravibe.js initGravibe] Sequence diagram initialized, component:", rerenderSequence);
+    console.log("[neonVibes.js initNeonVibes] Sequence diagram initialized, component:", rerenderSequence);
     componentRegistry.add(rerenderSequence);
   }
 
   if (flameChartHost) {
     const { initFlameChart } = await import("./ui/flameChart.js");
     const flameChartComponent = initFlameChart(flameChartHost, spans);
-    console.log("[gravibe.js initGravibe] Flame chart initialized, component:", flameChartComponent);
+    console.log("[neonVibes.js initNeonVibes] Flame chart initialized, component:", flameChartComponent);
     componentRegistry.add(flameChartComponent);
   }
 
   if (componentDiagramHost) {
     const { initComponentDiagram } = await import("./ui/componentDiagram.js");
     const componentDiagramComponent = initComponentDiagram(componentDiagramHost, spans);
-    console.log("[gravibe.js initGravibe] Component diagram initialized, component:", componentDiagramComponent);
+    console.log("[neonVibes.js initNeonVibes] Component diagram initialized, component:", componentDiagramComponent);
     componentRegistry.add(componentDiagramComponent);
   }
 }
 
-async function initGravibe() {
-  console.log("[gravibe.js initGravibe] Called");
+async function initNeonVibes() {
+  console.log("[neonVibes.js initNeonVibes] Called");
 
   // Set the rerender callback so palette changes trigger component updates
   setRerenderCallback(rerenderAllComponents);
-  console.log("[gravibe.js initGravibe] Registered rerenderAllComponents callback");
+  console.log("[neonVibes.js initNeonVibes] Registered rerenderAllComponents callback");
 
   // Initialize default palette
   const defaultPalette =
     colorPalettes.find((palette) => palette.id === paletteState.activeId) ?? colorPalettes[0];
   if (defaultPalette) {
-    console.log("[gravibe.js initGravibe] Applying default palette:", defaultPalette.id);
+    console.log("[neonVibes.js initNeonVibes] Applying default palette:", defaultPalette.id);
     applyPalette(defaultPalette);
   }
 
@@ -1462,7 +1462,7 @@ async function initGravibe() {
 }
 
 if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", initGravibe);
+  document.addEventListener("DOMContentLoaded", initNeonVibes);
 } else {
-  initGravibe();
+  initNeonVibes();
 }

@@ -1,5 +1,5 @@
 /*
- * Gravibe Palette Management
+ * NeonVibes Palette Management
  * Color utilities and palette state management
  */
 

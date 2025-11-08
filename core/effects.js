@@ -1,5 +1,5 @@
 /*
- * Gravibe Effects Management
+ * NeonVibes Effects Management
  * Glow, outline, and visual effect utilities
  */
 

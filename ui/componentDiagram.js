@@ -1,5 +1,5 @@
 /**
- * Gravibe Component Diagram Generator
+ * NeonVibes Component Diagram Generator
  * Generates Mermaid component diagrams from trace metamodel data.
  * Based on TraceLens.Server/generators/PlantUml/Component1Generator.cs, Component2Generator.cs, and Component3Generator.cs
  * Ported from PlantUML to Mermaid.js

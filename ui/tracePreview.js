@@ -1,5 +1,5 @@
 /**
- * Gravibe Trace Preview Component
+ * NeonVibes Trace Preview Component
  * Renders an interactive SVG preview of trace spans with time window selection.
  */
 

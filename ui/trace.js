@@ -1,5 +1,5 @@
 /**
- * Gravibe Trace Explorer Toolkit
+ * NeonVibes Trace Explorer Toolkit
  * Provides a lightweight data model that mirrors OpenTelemetry trace spans and
  * utilities to render a nested trace timeline inspired by the official proto
  * definitions.

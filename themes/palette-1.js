@@ -1,5 +1,5 @@
 /*
- * Palette 1 — Gravibe Sunrise
+ * Palette 1 — NeonVibes Sunrise
  * Normalized colors for consistent brightness and saturation
  */
 
@@ -34,7 +34,7 @@ const COMPONENT_DARK_GRAY = "#34495e";
 
 export const palette1 = {
     id: "palette-1",
-    label: "Palette 1 — Gravibe Sunrise",
+    label: "Palette 1 — NeonVibes Sunrise",
     theme: "dark",
     palette: {
         primary: PRIMARY,

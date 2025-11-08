@@ -1,5 +1,5 @@
 /*
- * Gravibe Chart Renderers
+ * NeonVibes Chart Renderers
  * ECharts renderer functions for all chart types
  */
 

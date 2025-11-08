@@ -1,5 +1,5 @@
 /*
- * Gravibe Datasets
+ * NeonVibes Datasets
  * Static datasets and live dataset creators
  */
 
@@ -67,8 +67,8 @@ export const neonDatasets = {
   barGauge: [],
 };
 
-// Live dataset creators are defined in gravibe.js
-// registerLiveDatasets() is also defined and called in gravibe.js
+// Live dataset creators are defined in neonVibes.js
+// registerLiveDatasets() is also defined and called in neonVibes.js
 
 export function initDatasetSelector(article, datasetKey) {
   const select = article.querySelector(".dataset-select");

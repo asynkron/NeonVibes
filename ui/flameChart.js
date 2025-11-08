@@ -1,5 +1,5 @@
 /**
- * Gravibe Flame Chart Component
+ * NeonVibes Flame Chart Component
  * Renders a flame chart visualization of trace spans.
  * Based on TraceLens.Site/Shared/FlameGraph implementation.
  */

@@ -1,5 +1,5 @@
 /*
- * Gravibe Configuration
+ * NeonVibes Configuration
  * Constants, palettes, and default values
  */
 

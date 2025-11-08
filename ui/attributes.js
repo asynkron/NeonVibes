@@ -1,5 +1,5 @@
 /**
- * Gravibe Attribute Panel Component
+ * NeonVibes Attribute Panel Component
  * Provides a reusable attribute table component for displaying AnyValue attributes
  * in a structured table format with columns for name, type, and value.
  */
